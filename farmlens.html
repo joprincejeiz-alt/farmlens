@@ -401,10 +401,10 @@
   // Change this to something only you know.
   var ADMIN_PIN = '2508';
 
-  // AQ.Ab8RN6IAxrzMqxXYfUFWOypHg6b0HCQyPLGdy9Vv_jWVx0Le0g(from aistudio.google.com -> Get API key).
+  // Paste your free Gemini API key here (from aistudio.google.com -> Get API key).
   // NOTE: this key will be visible to anyone who reads this file's source — don't publish
   // this exact file's raw code publicly. Gemini's free tier has daily limits but no cost.
-  var GEMINI_API_KEY = 'AQ.Ab8RN6Iw1EgfmarMdOQE719r33PMsfb5730HttLqWc2Op9DLOw';
+  var GEMINI_API_KEY = 'PASTE-YOUR-GEMINI-API-KEY-HERE';
   var GEMINI_MODEL = 'gemini-2.5-flash';
 
   function apiKeyConfigured(){
@@ -420,10 +420,13 @@
     });
     contents.push({ role: 'user', parts: parts });
 
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(GEMINI_API_KEY);
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
     return fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': GEMINI_API_KEY
+      },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents: contents,
