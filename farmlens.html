@@ -401,6 +401,52 @@
   // Change this to something only you know.
   var ADMIN_PIN = '2508';
 
+  // AQ.Ab8RN6IAxrzMqxXYfUFWOypHg6b0HCQyPLGdy9Vv_jWVx0Le0g(from aistudio.google.com -> Get API key).
+  // NOTE: this key will be visible to anyone who reads this file's source — don't publish
+  // this exact file's raw code publicly. Gemini's free tier has daily limits but no cost.
+  var GEMINI_API_KEY = 'PASTE-YOUR-GEMINI-API-KEY-HERE';
+  var GEMINI_MODEL = 'gemini-2.5-flash';
+
+  function apiKeyConfigured(){
+    return GEMINI_API_KEY && GEMINI_API_KEY.indexOf('PASTE-YOUR') !== 0;
+  }
+
+  // Shared helper for calling Gemini's generateContent endpoint.
+  // parts: array of Gemini "part" objects (text and/or inlineData for images)
+  // history: optional prior turns as [{role:'user'|'model', text:'...'}, ...] for multi-turn chat
+  function callGemini(systemPrompt, parts, maxTokens, history){
+    var contents = (history || []).map(function(h){
+      return { role: h.role, parts: [{ text: h.text }] };
+    });
+    contents.push({ role: 'user', parts: parts });
+
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(GEMINI_API_KEY);
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: contents,
+        generationConfig: { maxOutputTokens: maxTokens }
+      })
+    })
+    .then(function(res){
+      if(!res.ok){
+        var statusMsg = res.status === 429 ? 'Free daily limit reached for now — try again later, or tomorrow.' :
+          (res.status >= 500 ? 'The service is temporarily unavailable.' : 'The request was rejected (error ' + res.status + ').');
+        return res.json().catch(function(){ return {}; }).then(function(){ throw new Error(statusMsg); });
+      }
+      return res.json();
+    })
+    .then(function(data){
+      var candidate = (data.candidates || [])[0];
+      var text = candidate && candidate.content && candidate.content.parts && candidate.content.parts[0]
+        ? candidate.content.parts[0].text : null;
+      if(!text){ throw new Error('The model did not return a response.'); }
+      return text;
+    });
+  }
+
   function setActiveNav(btn){
     [navScan, navRecords, navTrends, navTips, navWeather].forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
@@ -734,47 +780,29 @@
   }
 
   function diagnose(base64, mediaType, dataUrl){
+    if(!apiKeyConfigured()){
+      renderError("AI diagnosis isn't set up yet — a free Gemini API key needs to be added to this app first.");
+      return;
+    }
     var systemPrompt = "You are an agronomy assistant for smallholder farmers in East Africa. Look at the leaf photo and identify the most likely pest or disease, or say the plant looks healthy. Be honest about uncertainty: some symptoms (e.g. viral leaf striping vs. nutrient deficiency) look genuinely similar, and confidently naming the wrong one is worse than admitting two things are possible. If a second cause is plausible, set confidence to reflect that split (do not report high confidence unless one cause is clearly dominant) and fill in the alternative field with the second possibility plus one concrete way the farmer can tell them apart in the field (e.g. whether it affects all plants evenly or just some, spreads from older or younger leaves first, etc). If there is no real alternative, leave alternative as null. Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this shape: {\"cropGuess\":\"string\",\"issue\":\"string (disease/pest name, or 'Healthy' if no problem)\",\"confidence\":number (0-100),\"symptoms\":[\"string\",...],\"alternative\":{\"issue\":\"string\",\"howToTell\":\"string\"} or null,\"organicTreatment\":[\"string\",...],\"chemicalTreatment\":[\"string\",...],\"prevention\":[\"string\",...]}. Keep each list item short and practical, written for a farmer, not a scientist.";
 
-    fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-            { type: "text", text: "Diagnose this crop leaf." }
-          ]
-        }]
+    var parts = [
+      { inlineData: { mimeType: mediaType, data: base64 } },
+      { text: "Diagnose this crop leaf." }
+    ];
+
+    callGemini(systemPrompt, parts, 1000)
+      .then(function(text){
+        var clean = text.replace(/```json|```/g, '').trim();
+        var parsed;
+        try { parsed = JSON.parse(clean); }
+        catch(e){ throw new Error('Got an unreadable response — please try scanning again.'); }
+        renderResult(parsed, dataUrl);
       })
-    })
-    .then(function(res){
-      if(!res.ok){
-        var statusMsg = res.status === 429 ? 'Too many requests right now, please wait a moment.' :
-          (res.status >= 500 ? 'The service is temporarily unavailable.' : 'The request was rejected (error ' + res.status + ').');
-        return res.json().catch(function(){ return {}; }).then(function(errBody){
-          throw new Error(statusMsg);
-        });
-      }
-      return res.json();
-    })
-    .then(function(data){
-      var textBlock = (data.content || []).find(function(b){ return b.type === 'text'; });
-      if(!textBlock){ throw new Error('The model did not return a diagnosis.'); }
-      var clean = textBlock.text.replace(/```json|```/g, '').trim();
-      var parsed;
-      try { parsed = JSON.parse(clean); }
-      catch(e){ throw new Error('Got an unreadable response — please try scanning again.'); }
-      renderResult(parsed, dataUrl);
-    })
-    .catch(function(err){
-      console.error(err);
-      renderError(err && err.message ? err.message : 'AI diagnosis isn\'t connected in this build yet. Check your connection, or if this keeps happening, the AI backend may not be set up.');
-    });
+      .catch(function(err){
+        console.error(err);
+        renderError(err && err.message ? err.message : 'Check your connection and try again.');
+      });
   }
 
   // ---------- RECORDS VIEW ----------
@@ -1148,36 +1176,26 @@
   }
 
   function askForTips(query, resultBox){
+    if(!apiKeyConfigured()){
+      resultBox.innerHTML = '<div class="fl-error">AI advice isn\'t set up yet — a free Gemini API key needs to be added to this app first.</div>';
+      return;
+    }
     var systemPrompt = "You are an agronomy assistant for smallholder farmers in East Africa. Given a short farmer question about a crop, pest, or disease, give 3-5 short, practical, field-ready tips. Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this shape: {\"tips\":[\"string\",...]}. Keep each tip short and actionable, written for a farmer, not a scientist.";
-    fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 600,
-        system: systemPrompt,
-        messages: [{ role: "user", content: query }]
+
+    callGemini(systemPrompt, [{ text: query }], 600)
+      .then(function(text){
+        var clean = text.replace(/```json|```/g, '').trim();
+        var parsed = JSON.parse(clean);
+        var tips = parsed.tips || [];
+        resultBox.innerHTML = tips.length
+          ? '<div class="fl-tipcard"><h4>' + escapeHtml(query) + '</h4><ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.6;color:var(--paper);">' +
+              tips.map(function(t){ return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul></div>'
+          : '<div class="fl-error">No specific advice found. Try rephrasing.</div>';
       })
-    })
-    .then(function(res){
-      if(!res.ok){ throw new Error('The request was rejected (error ' + res.status + ').'); }
-      return res.json();
-    })
-    .then(function(data){
-      var textBlock = (data.content || []).find(function(b){ return b.type === 'text'; });
-      if(!textBlock){ throw new Error('No advice came back.'); }
-      var clean = textBlock.text.replace(/```json|```/g, '').trim();
-      var parsed = JSON.parse(clean);
-      var tips = parsed.tips || [];
-      resultBox.innerHTML = tips.length
-        ? '<div class="fl-tipcard"><h4>' + escapeHtml(query) + '</h4><ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.6;color:var(--paper);">' +
-            tips.map(function(t){ return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul></div>'
-        : '<div class="fl-error">No specific advice found. Try rephrasing.</div>';
-    })
-    .catch(function(err){
-      console.error(err);
-      resultBox.innerHTML = '<div class="fl-error">Could not fetch advice. ' + escapeHtml(err.message || 'AI advice isn\'t connected in this build yet.') + '</div>';
-    });
+      .catch(function(err){
+        console.error(err);
+        resultBox.innerHTML = '<div class="fl-error">Could not fetch advice. ' + escapeHtml(err.message || 'Check your connection and try again.') + '</div>';
+      });
   }
 
   // ---------- WEATHER VIEW ----------
@@ -1375,25 +1393,17 @@
   }
 
   function askAssistant(history){
-    var messages = history.map(function(m){ return { role: m.role, content: m.content }; });
-    return fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 500,
-        system: ASSISTANT_SYSTEM_PROMPT,
-        messages: messages
-      })
-    })
-    .then(function(res){
-      if(!res.ok){ throw new Error('Request failed'); }
-      return res.json();
-    })
-    .then(function(data){
-      var textBlock = (data.content || []).find(function(b){ return b.type === 'text'; });
-      return textBlock ? textBlock.text.trim() : "I didn't get a response — please try again.";
+    if(!apiKeyConfigured()){
+      return Promise.resolve("The AI assistant isn't set up yet — a free Gemini API key needs to be added to this app first.");
+    }
+    var priorTurns = history.slice(0, -1).map(function(m){
+      return { role: m.role === 'assistant' ? 'model' : 'user', text: m.content };
     });
+    var lastMsg = history[history.length - 1];
+
+    return callGemini(ASSISTANT_SYSTEM_PROMPT, [{ text: lastMsg.content }], 500, priorTurns)
+      .then(function(text){ return text.trim(); })
+      .catch(function(){ return "I didn't get a response — please try again."; });
   }
 
   fabBtn.addEventListener('click', openAssistant);
