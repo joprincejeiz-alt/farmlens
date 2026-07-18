@@ -1,0 +1,14 @@
+{
+  "name": "FarmLens",
+  "short_name": "FarmLens",
+  "description": "Crop doctor in your pocket — scan leaves, log records, check weather.",
+  "start_url": "./farmlens.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#17210F",
+  "theme_color": "#17210F",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

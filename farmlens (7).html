@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FarmLens</title>
+<meta name="description" content="Crop doctor in your pocket — scan leaves, log farm records, check weather.">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#17210F">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@500;600;700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --soil-900:#17210F;
+    --soil-800:#1F2E17;
+    --soil-700:#2B3F20;
+    --khaki-600:#3A4D2E;
+    --paper:#EDE6D3;
+    --paper-dim:#C9C0A4;
+    --gold:#D9A441;
+    --gold-dark:#8A6420;
+    --rust:#C1502E;
+    --rust-light:#F3D9CE;
+    --leaf:#7FA65C;
+    --leaf-dark:#3F6B35;
+  }
+  *{box-sizing:border-box;}
+  .fl-app{
+    font-family:'Work Sans',sans-serif;
+    background:var(--soil-900);
+    color:var(--paper);
+    max-width:400px;
+    margin:0 auto;
+    border-radius:28px;
+    overflow:hidden;
+    border:1px solid #000;
+    box-shadow:0 0 0 6px var(--soil-800);
+    position:relative;
+  }
+  .fl-header{
+    padding:20px 20px 16px;
+    background:linear-gradient(180deg,var(--soil-800),var(--soil-900));
+    border-bottom:1px solid var(--khaki-600);
+  }
+  .fl-wordmark{
+    font-family:'Archivo Black',sans-serif;
+    font-size:22px;
+    letter-spacing:0.5px;
+    color:var(--paper);
+    margin:0;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .fl-tag{
+    font-family:'Barlow Condensed',sans-serif;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    font-size:12px;
+    color:var(--gold);
+    margin:4px 0 0 42px;
+  }
+  .fl-body{padding:18px 20px 100px; min-height:340px;}
+  .fl-scanzone{
+    border:2px dashed var(--khaki-600);
+    border-radius:16px;
+    padding:28px 16px;
+    text-align:center;
+    background:var(--soil-800);
+    cursor:pointer;
+    transition:border-color .15s;
+  }
+  .fl-scanzone:active{border-color:var(--gold);}
+  .fl-scanzone p.title{
+    font-family:'Barlow Condensed',sans-serif;
+    font-weight:600;
+    font-size:19px;
+    color:var(--paper);
+    margin:10px 0 4px;
+    letter-spacing:0.3px;
+  }
+  .fl-scanzone p.sub{font-size:13px;color:var(--paper-dim);margin:0;}
+  .fl-preview{width:100%;border-radius:14px;display:block;margin-bottom:14px;border:1px solid var(--khaki-600);}
+  .fl-btn{
+    width:100%;
+    font-family:'Barlow Condensed',sans-serif;
+    font-weight:600;
+    font-size:18px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    padding:13px;
+    border-radius:12px;
+    border:none;
+    cursor:pointer;
+  }
+  .fl-btn-primary{background:var(--gold);color:var(--soil-900);}
+  .fl-btn-primary:active{background:var(--gold-dark);}
+  .fl-btn-ghost{background:transparent;color:var(--paper-dim);border:1px solid var(--khaki-600);margin-top:10px;}
+  .fl-scanline{position:relative;overflow:hidden;border-radius:14px;margin-bottom:14px;}
+  .fl-scanline::after{
+    content:'';position:absolute;left:0;right:0;height:3px;background:var(--gold);
+    box-shadow:0 0 12px 2px var(--gold);
+    animation:flscan 1.6s ease-in-out infinite;
+  }
+  @keyframes flscan{0%{top:0%}50%{top:96%}100%{top:0%}}
+  .fl-loading-text{
+    font-family:'Barlow Condensed',sans-serif;
+    text-align:center;font-size:15px;color:var(--gold);letter-spacing:0.5px;
+    margin-top:2px;
+  }
+  .fl-stamp{
+    width:96px;height:96px;border-radius:50%;
+    border:3px solid var(--leaf);
+    display:flex;align-items:center;justify-content:center;
+    margin:8px auto 14px;
+    transform:rotate(-6deg);
+  }
+  .fl-stamp.alert{border-color:var(--rust);}
+  .fl-stamp span{
+    font-family:'Archivo Black',sans-serif;
+    font-size:11px;text-align:center;line-height:1.3;
+    color:var(--leaf);text-transform:uppercase;letter-spacing:0.5px;
+  }
+  .fl-stamp.alert span{color:var(--rust);}
+  .fl-result-name{
+    font-family:'Barlow Condensed',sans-serif;
+    font-weight:700;font-size:24px;text-align:center;margin:0 0 2px;color:var(--paper);
+  }
+  .fl-result-crop{text-align:center;font-size:13px;color:var(--paper-dim);margin:0 0 16px;}
+  .fl-confidence{display:flex;align-items:center;gap:10px;margin-bottom:18px;}
+  .fl-confidence-track{flex:1;height:6px;background:var(--khaki-600);border-radius:4px;overflow:hidden;}
+  .fl-confidence-fill{height:100%;background:var(--gold);}
+  .fl-confidence-label{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--gold);min-width:38px;text-align:right;}
+  .fl-section{margin-bottom:16px;}
+  .fl-section h3{
+    font-family:'Barlow Condensed',sans-serif;
+    text-transform:uppercase;letter-spacing:1px;font-size:14px;color:var(--gold);
+    margin:0 0 8px;border-bottom:1px solid var(--khaki-600);padding-bottom:6px;
+  }
+  .fl-section ul{margin:0;padding-left:18px;font-size:14px;line-height:1.6;color:var(--paper);}
+  .fl-tabs{display:flex;gap:6px;margin-bottom:10px;}
+  .fl-tab{
+    flex:1;text-align:center;padding:7px;border-radius:8px;
+    font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:0.3px;
+    background:var(--soil-800);color:var(--paper-dim);cursor:pointer;border:1px solid var(--khaki-600);
+  }
+  .fl-tab.active{background:var(--leaf-dark);color:var(--paper);border-color:var(--leaf);}
+  .fl-error{
+    background:var(--rust-light);color:#5C2415;border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:14px;
+  }
+  .fl-navbar{position:sticky;bottom:0;display:flex;background:var(--soil-800);border-top:1px solid var(--khaki-600);}
+  .fl-navitem{flex:1;text-align:center;padding:12px 4px;font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:0.5px;text-transform:uppercase;color:var(--paper-dim);cursor:pointer;border:none;background:none;}
+  .fl-navitem.active{color:var(--gold);}
+  .fl-navitem svg{display:block;margin:0 auto 3px;}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+
+  .fl-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+  .fl-metric{background:var(--soil-800);border:1px solid var(--khaki-600);border-radius:12px;padding:10px 12px;}
+  .fl-metric .label{font-family:'Barlow Condensed',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--paper-dim);}
+  .fl-metric .value{font-family:'IBM Plex Mono',monospace;font-size:16px;color:var(--paper);margin-top:2px;}
+  .fl-metric.net .value{color:var(--gold);}
+  .fl-form{background:var(--soil-800);border:1px solid var(--khaki-600);border-radius:14px;padding:14px;margin-bottom:16px;}
+  .fl-form label{display:block;font-family:'Barlow Condensed',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:var(--paper-dim);margin:10px 0 4px;}
+  .fl-form label:first-child{margin-top:0;}
+  .fl-form select, .fl-form input{
+    width:100%;background:var(--soil-900);border:1px solid var(--khaki-600);color:var(--paper);
+    border-radius:8px;padding:9px 10px;font-family:'Work Sans',sans-serif;font-size:14px;
+  }
+  .fl-form-row{display:flex;gap:8px;}
+  .fl-form-row > div{flex:1;}
+  .fl-typepill{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;padding:2px 8px;border-radius:20px;}
+  .fl-typepill.input{background:#3A2E10;color:var(--gold);}
+  .fl-typepill.yield{background:#213A14;color:var(--leaf);}
+  .fl-typepill.expense{background:#3A1A12;color:var(--rust);}
+  .fl-entry{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--khaki-600);}
+  .fl-entry:last-child{border-bottom:none;}
+  .fl-entry .bar{width:4px;align-self:stretch;border-radius:2px;}
+  .fl-entry .bar.input{background:var(--gold);}
+  .fl-entry .bar.yield{background:var(--leaf);}
+  .fl-entry .bar.expense{background:var(--rust);}
+  .fl-entry .info{flex:1;min-width:0;}
+  .fl-entry .item{font-size:14px;font-weight:500;color:var(--paper);}
+  .fl-entry .meta{font-size:12px;color:var(--paper-dim);margin-top:1px;}
+  .fl-entry .value{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--paper);white-space:nowrap;}
+  .fl-entry .del{background:none;border:none;color:var(--paper-dim);font-size:16px;cursor:pointer;padding:4px 6px;}
+  .fl-empty{text-align:center;color:var(--paper-dim);font-size:13px;padding:30px 10px;}
+  .fl-entry{cursor:pointer;}
+  .fl-fieldnote{font-size:11px;color:var(--paper-dim);margin-top:2px;}
+  .fl-fielderr{font-size:11px;color:var(--rust);margin-top:2px;}
+  .fl-form-actions{display:flex;gap:8px;margin-top:14px;}
+  .fl-form-actions .fl-btn{margin-top:0;}
+  .fl-exportrow{display:flex;gap:8px;margin-bottom:16px;}
+  .fl-exportrow .fl-btn{margin-top:0;font-size:13px;padding:9px;}
+  .fl-tipcard{background:var(--soil-800);border:1px solid var(--khaki-600);border-radius:12px;padding:12px 14px;margin-bottom:10px;}
+  .fl-tipcard h4{margin:0 0 4px;font-family:'Barlow Condensed',sans-serif;font-size:15px;color:var(--gold);letter-spacing:0.3px;}
+  .fl-tipcard p{margin:0;font-size:13px;line-height:1.5;color:var(--paper);}
+  .fl-tipask{background:var(--soil-800);border:1px solid var(--khaki-600);border-radius:14px;padding:14px;margin-bottom:16px;}
+  .fl-tipask label{display:block;font-family:'Barlow Condensed',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:var(--paper-dim);margin:0 0 6px;}
+  .fl-tipask .fl-form-row{margin-bottom:10px;}
+  .fl-tipask input{width:100%;background:var(--soil-900);border:1px solid var(--khaki-600);color:var(--paper);border-radius:8px;padding:9px 10px;font-family:'Work Sans',sans-serif;font-size:14px;}
+  .fl-chart-wrap{background:var(--soil-800);border:1px solid var(--khaki-600);border-radius:14px;padding:14px;margin-bottom:16px;}
+  .fl-chart-legend{display:flex;gap:14px;font-size:12px;color:var(--paper-dim);margin-top:8px;flex-wrap:wrap;}
+  .fl-chart-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .fl-chart-legend i{width:10px;height:10px;border-radius:3px;display:inline-block;}
+  @media print{
+    .fl-navbar, .fl-exportrow, .fl-scanzone{display:none !important;}
+  }
+  .fl-premium-badge{
+    font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;
+    color:var(--gold);background:rgba(217,164,65,0.12);border:1px solid var(--gold-dark);
+    border-radius:20px;padding:4px 10px;cursor:pointer;display:inline-block;margin-left:42px;margin-top:6px;
+  }
+  .fl-weathernow{background:var(--soil-800);border:1px solid var(--khaki-600);border-radius:14px;padding:16px;margin-bottom:14px;text-align:center;}
+  .fl-weathernow .temp{font-family:'Archivo Black',sans-serif;font-size:40px;color:var(--paper);margin:6px 0 2px;}
+  .fl-weathernow .desc{font-family:'Barlow Condensed',sans-serif;font-size:15px;color:var(--gold);letter-spacing:0.3px;}
+  .fl-weathernow .loc{font-size:12px;color:var(--paper-dim);margin-top:4px;}
+  .fl-weathermeta{display:flex;justify-content:center;gap:18px;margin-top:12px;font-size:12px;color:var(--paper-dim);}
+  .fl-forecast{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;}
+  .fl-fcday{flex:0 0 auto;background:var(--soil-800);border:1px solid var(--khaki-600);border-radius:12px;padding:10px 8px;text-align:center;min-width:64px;}
+  .fl-fcday .d{font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--paper-dim);text-transform:uppercase;}
+  .fl-fcday .t{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--paper);margin-top:4px;}
+  .fl-fcday .r{font-size:11px;color:var(--leaf);margin-top:2px;}
+  .fl-advisory{background:#213A14;border:1px solid var(--leaf-dark);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--paper);margin-bottom:14px;}
+  .fl-locform{display:flex;gap:8px;margin-bottom:14px;}
+  .fl-locform input{flex:1;background:var(--soil-800);border:1px solid var(--khaki-600);color:var(--paper);border-radius:8px;padding:9px 10px;font-family:'Work Sans',sans-serif;font-size:14px;}
+  .fl-locform button{white-space:nowrap;}
+  .fl-limitbanner{background:#3A2E10;border:1px solid var(--gold-dark);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--paper);margin-bottom:14px;}
+  .fl-limitbanner strong{color:var(--gold);}
+  .fl-plans{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+  .fl-plan{background:var(--soil-800);border:1px solid var(--khaki-600);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;}
+  .fl-plan .name{font-family:'Barlow Condensed',sans-serif;font-size:15px;color:var(--paper);}
+  .fl-plan .price{font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--gold);}
+  .fl-redeem{background:var(--soil-800);border:1px solid var(--khaki-600);border-radius:14px;padding:14px;margin-top:6px;}
+  .fl-redeem input{width:100%;background:var(--soil-900);border:1px solid var(--khaki-600);color:var(--paper);border-radius:8px;padding:9px 10px;font-family:'IBM Plex Mono',monospace;font-size:14px;text-transform:uppercase;margin-bottom:10px;}
+  .fl-premium-status{font-size:12px;color:var(--leaf);margin-bottom:10px;}
+  .fl-admin-box{background:var(--soil-800);border:1px solid var(--gold-dark);border-radius:14px;padding:14px;margin-bottom:16px;}
+  .fl-admin-box input{width:100%;background:var(--soil-900);border:1px solid var(--khaki-600);color:var(--paper);border-radius:8px;padding:9px 10px;font-family:'IBM Plex Mono',monospace;font-size:14px;margin-bottom:10px;}
+  .fl-admin-code{font-family:'IBM Plex Mono',monospace;font-size:16px;letter-spacing:1px;color:var(--gold);background:var(--soil-900);border:1px solid var(--khaki-600);border-radius:8px;padding:10px;text-align:center;margin-top:10px;word-break:break-all;}
+  .fl-admin-copy{font-size:12px;color:var(--paper-dim);text-align:center;margin-top:6px;cursor:pointer;text-decoration:underline;}
+  .fl-fab{
+    position:absolute; right:16px; bottom:78px; z-index:40;
+    width:52px; height:52px; border-radius:50%;
+    background:var(--gold); color:var(--soil-900);
+    display:flex; align-items:center; justify-content:center;
+    border:none; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,0.4);
+  }
+  .fl-chat-overlay{
+    position:absolute; inset:0; z-index:60;
+    background:var(--soil-900);
+    display:flex; flex-direction:column;
+  }
+  .fl-chat-header{
+    padding:16px 18px 12px; background:linear-gradient(180deg,var(--soil-800),var(--soil-900));
+    border-bottom:1px solid var(--khaki-600);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .fl-chat-header h3{margin:0;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:1px;font-size:16px;color:var(--gold);}
+  .fl-chat-close{background:none;border:none;color:var(--paper-dim);font-size:22px;cursor:pointer;line-height:1;padding:4px 8px;}
+  .fl-chat-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+  .fl-chat-bubble{max-width:82%;padding:10px 13px;border-radius:14px;font-size:13.5px;line-height:1.5;}
+  .fl-chat-bubble.user{align-self:flex-end;background:var(--gold);color:var(--soil-900);border-bottom-right-radius:4px;}
+  .fl-chat-bubble.assistant{align-self:flex-start;background:var(--soil-800);border:1px solid var(--khaki-600);color:var(--paper);border-bottom-left-radius:4px;}
+  .fl-chat-empty{color:var(--paper-dim);font-size:13px;text-align:center;margin-top:30px;padding:0 20px;}
+  .fl-chat-inputrow{display:flex;gap:8px;padding:12px 16px 16px;border-top:1px solid var(--khaki-600);background:var(--soil-800);}
+  .fl-chat-inputrow input{flex:1;background:var(--soil-900);border:1px solid var(--khaki-600);color:var(--paper);border-radius:20px;padding:10px 16px;font-family:'Work Sans',sans-serif;font-size:14px;}
+  .fl-chat-send{background:var(--gold);color:var(--soil-900);border:none;border-radius:50%;width:40px;height:40px;flex:0 0 auto;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .fl-chat-send:disabled{opacity:0.5;cursor:default;}
+  .fl-profile-btn{
+    position:absolute; top:20px; right:20px;
+    width:30px; height:30px; border-radius:50%;
+    background:var(--soil-800); border:1px solid var(--khaki-600); color:var(--paper-dim);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .fl-welcome-overlay{
+    position:absolute; inset:0; z-index:70;
+    background:var(--soil-900);
+    display:flex; flex-direction:column; justify-content:center;
+    padding:32px 24px;
+  }
+  .fl-welcome-overlay h2{font-family:'Archivo Black',sans-serif;font-size:22px;color:var(--paper);margin:0 0 6px;text-align:center;}
+  .fl-welcome-overlay p.sub{font-family:'Barlow Condensed',sans-serif;font-size:13px;color:var(--paper-dim);text-align:center;margin:0 0 24px;}
+  .fl-welcome-overlay label{display:block;font-family:'Barlow Condensed',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:var(--paper-dim);margin:0 0 6px;}
+  .fl-welcome-overlay input{width:100%;background:var(--soil-800);border:1px solid var(--khaki-600);color:var(--paper);border-radius:8px;padding:10px 12px;font-family:'Work Sans',sans-serif;font-size:14px;margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+
+<div class="fl-app">
+  <h2 class="sr-only">FarmLens, a mobile app for farmers to diagnose crop leaf problems by photo, and to log farm inputs, yields, and expenses.</h2>
+
+  <div class="fl-header">
+    <p class="fl-wordmark" id="fl-wordmark">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21C12 21 5 16.5 5 10.5C5 6.5 8 4 11 4C11 4 12 4 12 6C12 4 13 4 13 4C16 4 19 6.5 19 10.5C19 16.5 12 21 12 21Z" stroke="#D9A441" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 21V9" stroke="#D9A441" stroke-width="1.6"/></svg>
+      FarmLens
+    </p>
+    <p class="fl-tag" id="fl-tagline">Crop doctor in your pocket</p>
+    <span class="fl-premium-badge" id="fl-premium-badge">Free plan</span>
+    <button class="fl-profile-btn" id="fl-profile-btn" aria-label="Your profile">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.4" stroke="currentColor" stroke-width="1.6"/><path d="M5 20C5.8 16.5 8.5 14.5 12 14.5C15.5 14.5 18.2 16.5 19 20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <div class="fl-body" id="fl-body"></div>
+
+  <div class="fl-navbar">
+    <button class="fl-navitem active" id="fl-nav-scan">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M4 8C4 6.9 4.9 6 6 6H8L9 4H15L16 6H18C19.1 6 20 6.9 20 8V17C20 18.1 19.1 19 18 19H6C4.9 19 4 18.1 4 17V8Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      Scan
+    </button>
+    <button class="fl-navitem" id="fl-nav-records">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 3H18V21L12 18L6 21V3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      Records
+    </button>
+    <button class="fl-navitem" id="fl-nav-trends">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19V15L9 10L13 14L20 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19H20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      Trends
+    </button>
+    <button class="fl-navitem" id="fl-nav-tips">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.6"/><path d="M12 8V12L15 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      Tips
+    </button>
+    <button class="fl-navitem" id="fl-nav-weather">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 18H16.5C18.4 18 20 16.4 20 14.5C20 12.6 18.4 11 16.5 11C16.3 11 16.1 11 15.9 11.1C15.4 8.7 13.3 7 10.8 7C7.9 7 5.5 9.4 5.5 12.3C5.5 12.5 5.5 12.7 5.5 12.9C4 13.3 3 14.7 3 16.2C3 17.2 3.9 18 5 18H7Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      Weather
+    </button>
+  </div>
+
+  <button class="fl-fab" id="fl-fab" aria-label="Ask the farm assistant">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6C4 4.9 4.9 4 6 4H18C19.1 4 20 4.9 20 6V14C20 15.1 19.1 16 18 16H9L5 19.5V16H6C4.9 16 4 15.1 4 14V6Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+  </button>
+</div>
+
+<script>
+(function(){
+  // Outside the Claude preview (hosted standalone, or wrapped as an app),
+  // window.storage doesn't exist — fall back to the browser's own localStorage
+  // so records, premium status, profile, and chat history still save.
+  if(!window.storage){
+    window.storage = (function(){
+      function fullKey(key, shared){ return (shared ? 'fl-shared:' : 'fl-user:') + key; }
+      return {
+        get: function(key, shared){
+          return new Promise(function(resolve, reject){
+            try {
+              var raw = localStorage.getItem(fullKey(key, shared));
+              if(raw === null){ reject(new Error('Key not found: ' + key)); return; }
+              resolve({ key: key, value: raw, shared: !!shared });
+            } catch(e){ reject(e); }
+          });
+        },
+        set: function(key, value, shared){
+          return new Promise(function(resolve, reject){
+            try {
+              localStorage.setItem(fullKey(key, shared), value);
+              resolve({ key: key, value: value, shared: !!shared });
+            } catch(e){ reject(e); }
+          });
+        },
+        delete: function(key, shared){
+          return new Promise(function(resolve){
+            localStorage.removeItem(fullKey(key, shared));
+            resolve({ key: key, deleted: true, shared: !!shared });
+          });
+        },
+        list: function(prefix, shared){
+          return new Promise(function(resolve){
+            var pfx = fullKey(prefix || '', shared);
+            var stripLen = (shared ? 'fl-shared:' : 'fl-user:').length;
+            var keys = [];
+            for(var i = 0; i < localStorage.length; i++){
+              var k = localStorage.key(i);
+              if(k.indexOf(pfx) === 0) keys.push(k.slice(stripLen));
+            }
+            resolve({ keys: keys, prefix: prefix, shared: !!shared });
+          });
+        }
+      };
+    })();
+  }
+
+  var body = document.getElementById('fl-body');
+  var tagline = document.getElementById('fl-tagline');
+  var premiumBadge = document.getElementById('fl-premium-badge');
+  var navScan = document.getElementById('fl-nav-scan');
+  var navRecords = document.getElementById('fl-nav-records');
+  var navTrends = document.getElementById('fl-nav-trends');
+  var navTips = document.getElementById('fl-nav-tips');
+  var navWeather = document.getElementById('fl-nav-weather');
+  var fabBtn = document.getElementById('fl-fab');
+  var profileBtn = document.getElementById('fl-profile-btn');
+
+  var FREE_DAILY_SCANS = 3;
+  // NOTE: this secret only guards against casual tampering, not a determined attacker —
+  // there's no real backend here. Change it to your own string before sharing codes.
+  var PREMIUM_SECRET = 'BT6SRRL2S6RV3C2P';
+  // PIN for the on-phone code generator (tap the FarmLens wordmark 5 times to open it).
+  // Change this to something only you know.
+  var ADMIN_PIN = '2508';
+
+  function setActiveNav(btn){
+    [navScan, navRecords, navTrends, navTips, navWeather].forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+  }
+
+  function escapeHtml(str){
+    return String(str == null ? '' : str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+  navScan.addEventListener('click', function(){ setActiveNav(navScan); tagline.textContent = 'Crop doctor in your pocket'; renderScan(); });
+  navRecords.addEventListener('click', function(){ setActiveNav(navRecords); tagline.textContent = 'Your farm, in figures'; renderRecords(); });
+  navTrends.addEventListener('click', function(){ setActiveNav(navTrends); tagline.textContent = 'Where the money moves'; renderTrends(); });
+  navTips.addEventListener('click', function(){ setActiveNav(navTips); tagline.textContent = 'Field-tested advice'; renderTips(); });
+  navWeather.addEventListener('click', function(){ setActiveNav(navWeather); tagline.textContent = 'Sky, soil, and the days ahead'; renderWeather(); });
+  premiumBadge.addEventListener('click', function(){ renderUpgrade(); });
+
+  // Tap the FarmLens wordmark 5 times within 2 seconds to open the on-phone code generator.
+  var wordmarkTapCount = 0;
+  var wordmarkTapTimer = null;
+  var wordmarkEl = document.getElementById('fl-wordmark');
+  wordmarkEl.addEventListener('click', function(){
+    wordmarkTapCount++;
+    clearTimeout(wordmarkTapTimer);
+    wordmarkTapTimer = setTimeout(function(){ wordmarkTapCount = 0; }, 2000);
+    if(wordmarkTapCount >= 5){
+      wordmarkTapCount = 0;
+      renderAdmin();
+    }
+  });
+
+  // ---------- PREMIUM / PAYWALL ----------
+  function getPremiumExpiry(){
+    return window.storage.get('premium:expiry', false)
+      .then(function(res){ return res && res.value ? res.value : null; })
+      .catch(function(){ return null; });
+  }
+
+  function setPremiumExpiry(dateStr){
+    return window.storage.set('premium:expiry', dateStr, false).catch(function(){});
+  }
+
+  function isPremiumActive(expiry){
+    return !!expiry && expiry >= todayStr();
+  }
+
+  function updatePremiumBadge(){
+    getPremiumExpiry().then(function(expiry){
+      if(isPremiumActive(expiry)){
+        premiumBadge.textContent = 'Premium · until ' + expiry;
+      } else {
+        premiumBadge.textContent = 'Free plan · tap to upgrade';
+      }
+    });
+  }
+
+  function simpleHash(str){
+    var hash = 0;
+    for(var i = 0; i < str.length; i++){
+      hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    }
+    return hash.toString(36).toUpperCase();
+  }
+
+  // Code format: FL-YYYYMMDD-CHECKSUM, where YYYYMMDD is the premium expiry date.
+  // Generate codes for paying users from the browser console with:
+  //   flAdmin.generateCode(30)   -> 30 days of premium from today
+  function computeChecksum(dateDigits){
+    return simpleHash(dateDigits + PREMIUM_SECRET).slice(0, 5);
+  }
+
+  function generateCode(daysFromNow){
+    var d = new Date();
+    d.setDate(d.getDate() + Number(daysFromNow || 30));
+    var dateDigits = d.toISOString().slice(0,10).replace(/-/g,'');
+    return 'FL-' + dateDigits + '-' + computeChecksum(dateDigits);
+  }
+  window.flAdmin = { generateCode: generateCode };
+
+  function renderAdmin(){
+    body.innerHTML =
+      '<div class="fl-admin-box">' +
+        '<label style="display:block;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:var(--paper-dim);margin-bottom:6px;">Enter admin PIN</label>' +
+        '<input type="password" inputmode="numeric" id="fl-admin-pin" placeholder="PIN">' +
+        '<button class="fl-btn fl-btn-primary" id="fl-admin-unlock">Unlock</button>' +
+        '<div id="fl-admin-err"></div>' +
+      '</div>' +
+      '<button class="fl-btn fl-btn-ghost" id="fl-admin-back">Back</button>';
+
+    document.getElementById('fl-admin-back').addEventListener('click', function(){ setActiveNav(navScan); tagline.textContent = 'Crop doctor in your pocket'; renderScan(); });
+    document.getElementById('fl-admin-unlock').addEventListener('click', function(){
+      var pin = document.getElementById('fl-admin-pin').value.trim();
+      if(pin !== ADMIN_PIN){
+        document.getElementById('fl-admin-err').innerHTML = '<div class="fl-fielderr">Wrong PIN.</div>';
+        return;
+      }
+      renderAdminGenerate();
+    });
+  }
+
+  function renderAdminGenerate(){
+    body.innerHTML =
+      '<div class="fl-admin-box">' +
+        '<label style="display:block;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:var(--paper-dim);margin-bottom:6px;">Days of premium to grant</label>' +
+        '<input type="number" min="1" id="fl-admin-days" placeholder="30" value="30">' +
+        '<button class="fl-btn fl-btn-primary" id="fl-admin-gen">Generate code</button>' +
+        '<div id="fl-admin-result"></div>' +
+      '</div>' +
+      '<button class="fl-btn fl-btn-ghost" id="fl-admin-back2">Back</button>';
+
+    document.getElementById('fl-admin-back2').addEventListener('click', function(){ setActiveNav(navScan); tagline.textContent = 'Crop doctor in your pocket'; renderScan(); });
+    document.getElementById('fl-admin-gen').addEventListener('click', function(){
+      var days = parseInt(document.getElementById('fl-admin-days').value, 10) || 30;
+      var code = generateCode(days);
+      var resultBox = document.getElementById('fl-admin-result');
+      resultBox.innerHTML =
+        '<div class="fl-admin-code" id="fl-admin-code-text">' + code + '</div>' +
+        '<div class="fl-admin-copy" id="fl-admin-copy">Tap to copy</div>';
+      document.getElementById('fl-admin-copy').addEventListener('click', function(){
+        var text = document.getElementById('fl-admin-code-text').textContent;
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(text).then(function(){
+            document.getElementById('fl-admin-copy').textContent = 'Copied!';
+          }).catch(function(){});
+        }
+      });
+    });
+  }
+
+  function redeemCode(code, statusBox){
+    code = (code || '').trim().toUpperCase();
+    var m = code.match(/^FL-(\d{8})-([A-Z0-9]{5})$/);
+    if(!m){
+      statusBox.innerHTML = '<div class="fl-fielderr">That code doesn\'t look right. Double-check and try again.</div>';
+      return;
+    }
+    var dateDigits = m[1], checksum = m[2];
+    if(computeChecksum(dateDigits) !== checksum){
+      statusBox.innerHTML = '<div class="fl-fielderr">That code isn\'t valid.</div>';
+      return;
+    }
+    var expiry = dateDigits.slice(0,4) + '-' + dateDigits.slice(4,6) + '-' + dateDigits.slice(6,8);
+    if(expiry < todayStr()){
+      statusBox.innerHTML = '<div class="fl-fielderr">That code has already expired.</div>';
+      return;
+    }
+    setPremiumExpiry(expiry).then(function(){
+      statusBox.innerHTML = '<div class="fl-premium-status">Premium activated until ' + expiry + '. Enjoy unlimited scans!</div>';
+      updatePremiumBadge();
+    });
+  }
+
+  function renderUpgrade(){
+    getPremiumExpiry().then(function(expiry){
+      var active = isPremiumActive(expiry);
+      body.innerHTML =
+        (active ? '<div class="fl-premium-status">You\'re on Premium until ' + expiry + '. Unlimited scans until then.</div>' : '') +
+        '<div class="fl-section"><h3>Go Premium</h3>' +
+          '<div class="fl-plans">' +
+            '<div class="fl-plan"><span class="name">1 week, unlimited scans</span><span class="price">UGX 3,000</span></div>' +
+            '<div class="fl-plan"><span class="name">1 month, unlimited scans</span><span class="price">UGX 8,000</span></div>' +
+            '<div class="fl-plan"><span class="name">1 season (3 months)</span><span class="price">UGX 20,000</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="fl-section"><h3>How to pay</h3><ul>' +
+          '<li>Send the amount via Mobile Money to <strong>0782 508 077 (Okello Jotham)</strong>.</li>' +
+          '<li>Include your name in the payment reference/message.</li>' +
+          '<li>You\'ll receive an unlock code back — enter it below.</li>' +
+        '</ul></div>' +
+        '<div class="fl-redeem">' +
+          '<label for="fl-redeem-code" style="display:block;font-family:\'Barlow Condensed\',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;color:var(--paper-dim);margin-bottom:6px;">Enter unlock code</label>' +
+          '<input type="text" id="fl-redeem-code" placeholder="FL-20260101-ABCDE">' +
+          '<button class="fl-btn fl-btn-primary" id="fl-redeem-btn">Activate</button>' +
+          '<div id="fl-redeem-status" style="margin-top:10px;"></div>' +
+        '</div>' +
+        '<button class="fl-btn fl-btn-ghost" id="fl-upgrade-back" style="margin-top:14px;">Back</button>';
+
+      document.getElementById('fl-redeem-btn').addEventListener('click', function(){
+        redeemCode(document.getElementById('fl-redeem-code').value, document.getElementById('fl-redeem-status'));
+      });
+      document.getElementById('fl-upgrade-back').addEventListener('click', function(){ setActiveNav(navScan); tagline.textContent = 'Crop doctor in your pocket'; renderScan(); });
+    });
+  }
+
+  // ---------- DAILY SCAN USAGE ----------
+  function getUsage(){
+    return window.storage.get('usage:scans', false)
+      .then(function(res){ return res && res.value ? JSON.parse(res.value) : { date: todayStr(), count: 0 }; })
+      .catch(function(){ return { date: todayStr(), count: 0 }; });
+  }
+
+  function bumpUsage(usage){
+    var today = todayStr();
+    if(usage.date !== today) usage = { date: today, count: 0 };
+    usage.count += 1;
+    return window.storage.set('usage:scans', JSON.stringify(usage), false).then(function(){ return usage; }).catch(function(){ return usage; });
+  }
+
+  // ---------- SCAN VIEW ----------
+  function renderScan(){
+    Promise.all([getPremiumExpiry(), getUsage()]).then(function(results){
+      var expiry = results[0];
+      var usage = results[1];
+      var today = todayStr();
+      var scansToday = usage.date === today ? usage.count : 0;
+      var premium = isPremiumActive(expiry);
+      var remaining = FREE_DAILY_SCANS - scansToday;
+
+      var limitBanner = premium ? '' :
+        '<div class="fl-limitbanner">' +
+          (remaining > 0
+            ? '<strong>' + remaining + '</strong> of ' + FREE_DAILY_SCANS + ' free scans left today.'
+            : '<strong>Daily free limit reached.</strong> Come back tomorrow, or go Premium for unlimited scans.') +
+          ' <span style="text-decoration:underline;cursor:pointer;" id="fl-limit-upgrade">Upgrade</span>' +
+        '</div>';
+
+      body.innerHTML =
+        limitBanner +
+        '<div class="fl-scanzone" id="fl-scanzone">' +
+          '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8C4 6.9 4.9 6 6 6H8L9 4H15L16 6H18C19.1 6 20 6.9 20 8V17C20 18.1 19.1 19 18 19H6C4.9 19 4 18.1 4 17V8Z" stroke="#EDE6D3" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.4" stroke="#D9A441" stroke-width="1.6"/></svg>' +
+          '<p class="title">Tap to scan a leaf</p>' +
+          '<p class="sub">Photograph the affected leaf in good light</p>' +
+          '<input type="file" accept="image/*" capture="environment" id="fl-file" style="display:none;">' +
+        '</div>';
+
+      var upgradeLink = document.getElementById('fl-limit-upgrade');
+      if(upgradeLink) upgradeLink.addEventListener('click', renderUpgrade);
+
+      var fileInput = document.getElementById('fl-file');
+      var scanzone = document.getElementById('fl-scanzone');
+      scanzone.addEventListener('click', function(){
+        if(!premium && remaining <= 0){ renderUpgrade(); return; }
+        fileInput.click();
+      });
+      fileInput.addEventListener('change', function(e){
+        var file = e.target.files[0];
+        if(!file) return;
+        if(!premium && remaining <= 0){ renderUpgrade(); return; }
+        var reader = new FileReader();
+        reader.onload = function(ev){
+          var dataUrl = ev.target.result;
+          renderPreview(dataUrl);
+          bumpUsage(usage);
+          resizeImage(dataUrl, 1024, 0.82, function(resizedDataUrl, mediaType){
+            var base64 = resizedDataUrl.split(',')[1];
+            diagnose(base64, mediaType, resizedDataUrl);
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+  }
+
+  // Downscale + recompress large phone photos before sending to the API.
+  // Keeps uploads fast and reliable and avoids hitting request size limits.
+  function resizeImage(dataUrl, maxDim, quality, callback){
+    var img = new Image();
+    img.onload = function(){
+      var w = img.width, h = img.height;
+      if(w > maxDim || h > maxDim){
+        if(w >= h){ h = Math.round(h * (maxDim / w)); w = maxDim; }
+        else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+      }
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      var out = canvas.toDataURL('image/jpeg', quality);
+      callback(out, 'image/jpeg');
+    };
+    img.onerror = function(){
+      var mt = (dataUrl.match(/^data:([^;]+);/) || [,'image/jpeg'])[1];
+      callback(dataUrl, mt);
+    };
+    img.src = dataUrl;
+  }
+
+  function renderPreview(dataUrl){
+    body.innerHTML =
+      '<div class="fl-scanline"><img class="fl-preview" src="' + dataUrl + '" style="margin-bottom:0;"></div>' +
+      '<p class="fl-loading-text">Reading the leaf&hellip;</p>';
+  }
+
+  function renderError(msg){
+    body.innerHTML =
+      '<div class="fl-error">Could not complete the diagnosis. ' + escapeHtml(msg) + '</div>' +
+      '<button class="fl-btn fl-btn-primary" id="fl-retry">Try again</button>';
+    document.getElementById('fl-retry').addEventListener('click', renderScan);
+  }
+
+  function renderResult(data, dataUrl){
+    var healthy = /healthy|no disease|no pest/i.test(data.issue || '');
+    var stampClass = healthy ? 'fl-stamp' : 'fl-stamp alert';
+    var stampText = healthy ? 'Field<br>clear' : 'Action<br>needed';
+    var conf = Math.max(0, Math.min(100, Math.round(data.confidence || 0)));
+
+    var symptomsHtml = (data.symptoms || []).map(function(s){ return '<li>' + escapeHtml(s) + '</li>'; }).join('');
+    var preventionHtml = (data.prevention || []).map(function(s){ return '<li>' + escapeHtml(s) + '</li>'; }).join('');
+    var organicHtml = (data.organicTreatment || []).map(function(s){ return '<li>' + escapeHtml(s) + '</li>'; }).join('');
+    var chemicalHtml = (data.chemicalTreatment || []).map(function(s){ return '<li>' + escapeHtml(s) + '</li>'; }).join('');
+
+    body.innerHTML =
+      '<img class="fl-preview" src="' + dataUrl + '" style="max-height:160px;object-fit:cover;">' +
+      '<div class="' + stampClass + '"><span>' + stampText + '</span></div>' +
+      '<p class="fl-result-name">' + escapeHtml(data.issue || 'Unknown') + '</p>' +
+      '<p class="fl-result-crop">' + escapeHtml(data.cropGuess || 'Crop not identified') + '</p>' +
+      '<div class="fl-confidence"><div class="fl-confidence-track"><div class="fl-confidence-fill" style="width:' + conf + '%"></div></div><span class="fl-confidence-label">' + conf + '%</span></div>' +
+      (symptomsHtml ? '<div class="fl-section"><h3>Symptoms matched</h3><ul>' + symptomsHtml + '</ul></div>' : '') +
+      (data.alternative && data.alternative.issue ? '<div class="fl-section"><h3>Could also be</h3><ul><li><strong>' + escapeHtml(data.alternative.issue) + '</strong> &mdash; ' + escapeHtml(data.alternative.howToTell || '') + '</li></ul></div>' : '') +
+      (!healthy ? '<div class="fl-section"><h3>Treatment</h3><div class="fl-tabs"><div class="fl-tab active" id="fl-tab-organic">Organic</div><div class="fl-tab" id="fl-tab-chemical">Chemical</div></div><ul id="fl-treatment-list">' + (organicHtml || '<li>No organic option listed.</li>') + '</ul></div>' : '') +
+      (preventionHtml ? '<div class="fl-section"><h3>Prevention</h3><ul>' + preventionHtml + '</ul></div>' : '') +
+      '<button class="fl-btn fl-btn-ghost" id="fl-scan-again">Scan another leaf</button>';
+
+    document.getElementById('fl-scan-again').addEventListener('click', renderScan);
+
+    var tabO = document.getElementById('fl-tab-organic');
+    var tabC = document.getElementById('fl-tab-chemical');
+    if(tabO && tabC){
+      tabO.addEventListener('click', function(){
+        tabO.classList.add('active'); tabC.classList.remove('active');
+        document.getElementById('fl-treatment-list').innerHTML = organicHtml || '<li>No organic option listed.</li>';
+      });
+      tabC.addEventListener('click', function(){
+        tabC.classList.add('active'); tabO.classList.remove('active');
+        document.getElementById('fl-treatment-list').innerHTML = chemicalHtml || '<li>No chemical option listed.</li>';
+      });
+    }
+  }
+
+  function diagnose(base64, mediaType, dataUrl){
+    var systemPrompt = "You are an agronomy assistant for smallholder farmers in East Africa. Look at the leaf photo and identify the most likely pest or disease, or say the plant looks healthy. Be honest about uncertainty: some symptoms (e.g. viral leaf striping vs. nutrient deficiency) look genuinely similar, and confidently naming the wrong one is worse than admitting two things are possible. If a second cause is plausible, set confidence to reflect that split (do not report high confidence unless one cause is clearly dominant) and fill in the alternative field with the second possibility plus one concrete way the farmer can tell them apart in the field (e.g. whether it affects all plants evenly or just some, spreads from older or younger leaves first, etc). If there is no real alternative, leave alternative as null. Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this shape: {\"cropGuess\":\"string\",\"issue\":\"string (disease/pest name, or 'Healthy' if no problem)\",\"confidence\":number (0-100),\"symptoms\":[\"string\",...],\"alternative\":{\"issue\":\"string\",\"howToTell\":\"string\"} or null,\"organicTreatment\":[\"string\",...],\"chemicalTreatment\":[\"string\",...],\"prevention\":[\"string\",...]}. Keep each list item short and practical, written for a farmer, not a scientist.";
+
+    fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+            { type: "text", text: "Diagnose this crop leaf." }
+          ]
+        }]
+      })
+    })
+    .then(function(res){
+      if(!res.ok){
+        var statusMsg = res.status === 429 ? 'Too many requests right now, please wait a moment.' :
+          (res.status >= 500 ? 'The service is temporarily unavailable.' : 'The request was rejected (error ' + res.status + ').');
+        return res.json().catch(function(){ return {}; }).then(function(errBody){
+          throw new Error(statusMsg);
+        });
+      }
+      return res.json();
+    })
+    .then(function(data){
+      var textBlock = (data.content || []).find(function(b){ return b.type === 'text'; });
+      if(!textBlock){ throw new Error('The model did not return a diagnosis.'); }
+      var clean = textBlock.text.replace(/```json|```/g, '').trim();
+      var parsed;
+      try { parsed = JSON.parse(clean); }
+      catch(e){ throw new Error('Got an unreadable response — please try scanning again.'); }
+      renderResult(parsed, dataUrl);
+    })
+    .catch(function(err){
+      console.error(err);
+      renderError(err && err.message ? err.message : 'AI diagnosis isn\'t connected in this build yet. Check your connection, or if this keeps happening, the AI backend may not be set up.');
+    });
+  }
+
+  // ---------- RECORDS VIEW ----------
+  var TYPE_LABEL = { input: 'Input', yield: 'Yield', expense: 'Expense' };
+  var TYPE_PLACEHOLDER = { input: 'e.g. DAP fertilizer', yield: 'e.g. Maize', expense: 'e.g. Casual labour' };
+
+  function loadEntries(){
+    return window.storage.get('records:entries', false)
+      .then(function(res){ return res && res.value ? JSON.parse(res.value) : []; })
+      .catch(function(){ return []; });
+  }
+
+  function saveEntries(entries){
+    return window.storage.set('records:entries', JSON.stringify(entries), false)
+      .catch(function(err){ console.error('Storage error', err); });
+  }
+
+  function renderRecords(){
+    body.innerHTML = '<p class="fl-loading-text" style="margin-top:40px;">Loading your records&hellip;</p>';
+    loadEntries().then(function(entries){
+      drawRecords(entries, null);
+    });
+  }
+
+  function drawRecords(entries, editingId){
+    entries.sort(function(a,b){ return b.date.localeCompare(a.date); });
+
+    var totalInput = 0, totalYield = 0, totalExpense = 0;
+    entries.forEach(function(e){
+      var v = Number(e.value) || 0;
+      if(e.type === 'input') totalInput += v;
+      else if(e.type === 'yield') totalYield += v;
+      else if(e.type === 'expense') totalExpense += v;
+    });
+    var net = totalYield - totalInput - totalExpense;
+
+    var editingEntry = editingId ? entries.find(function(e){ return e.id === editingId; }) : null;
+
+    var rowsHtml = entries.length ? entries.map(function(e){
+      var qty = e.quantity ? escapeHtml(e.quantity) : '';
+      return '<div class="fl-entry" data-id="' + e.id + '">' +
+        '<div class="bar ' + e.type + '"></div>' +
+        '<div class="info">' +
+          '<div class="item">' + escapeHtml(e.item) + ' <span class="fl-typepill ' + e.type + '">' + TYPE_LABEL[e.type] + '</span></div>' +
+          '<div class="meta">' + [qty, e.date].filter(Boolean).join(' &middot; ') + (e.note ? ' &middot; ' + escapeHtml(e.note) : '') + '</div>' +
+        '</div>' +
+        '<div class="value">' + formatUGX(e.value) + '</div>' +
+        '<button class="del" data-del="' + e.id + '" aria-label="Delete entry">&times;</button>' +
+      '</div>';
+    }).join('') : '<div class="fl-empty">No records yet. Log your first input, yield, or expense below.</div>';
+
+    var f = editingEntry || { type: 'input', item: '', quantity: '', value: '', date: todayStr(), note: '' };
+
+    body.innerHTML =
+      '<div class="fl-metrics">' +
+        '<div class="fl-metric"><div class="label">Input cost</div><div class="value">' + formatUGX(totalInput) + '</div></div>' +
+        '<div class="fl-metric"><div class="label">Yield value</div><div class="value">' + formatUGX(totalYield) + '</div></div>' +
+        '<div class="fl-metric"><div class="label">Expenses</div><div class="value">' + formatUGX(totalExpense) + '</div></div>' +
+        '<div class="fl-metric net"><div class="label">Net</div><div class="value">' + formatUGX(net) + '</div></div>' +
+      '</div>' +
+      '<div class="fl-exportrow">' +
+        '<button class="fl-btn fl-btn-ghost" id="fl-export-csv"' + (entries.length ? '' : ' disabled') + '>Export CSV</button>' +
+        '<button class="fl-btn fl-btn-ghost" id="fl-export-pdf"' + (entries.length ? '' : ' disabled') + '>Export PDF</button>' +
+      '</div>' +
+      '<div class="fl-form">' +
+        '<label for="fl-f-type">Entry type</label>' +
+        '<select id="fl-f-type">' +
+          '<option value="input"' + (f.type==='input'?' selected':'') + '>Input</option>' +
+          '<option value="yield"' + (f.type==='yield'?' selected':'') + '>Yield</option>' +
+          '<option value="expense"' + (f.type==='expense'?' selected':'') + '>Expense</option>' +
+        '</select>' +
+        '<label for="fl-f-item">Item</label>' +
+        '<input type="text" id="fl-f-item" placeholder="' + TYPE_PLACEHOLDER[f.type] + '" value="' + escapeHtml(f.item) + '">' +
+        '<div class="fl-form-row">' +
+          '<div><label for="fl-f-qty">Quantity</label><input type="text" id="fl-f-qty" placeholder="e.g. 50 kg" value="' + escapeHtml(f.quantity) + '"></div>' +
+          '<div><label for="fl-f-value">Value (UGX)</label><input type="number" min="0" step="any" id="fl-f-value" placeholder="0" value="' + escapeHtml(f.value) + '"></div>' +
+        '</div>' +
+        '<div id="fl-f-valueerr"></div>' +
+        '<label for="fl-f-date">Date</label>' +
+        '<input type="date" id="fl-f-date" value="' + f.date + '">' +
+        '<label for="fl-f-note">Note (optional)</label>' +
+        '<input type="text" id="fl-f-note" placeholder="Anything worth remembering" value="' + escapeHtml(f.note) + '">' +
+        '<div class="fl-form-actions">' +
+          '<button class="fl-btn fl-btn-primary" id="fl-f-save">' + (editingEntry ? 'Update entry' : 'Save entry') + '</button>' +
+          (editingEntry ? '<button class="fl-btn fl-btn-ghost" id="fl-f-cancel">Cancel</button>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="fl-section"><h3>Log' + (editingEntry ? ' <span style="color:var(--paper-dim);font-weight:normal;">(tap another entry to edit it)</span>' : '') + '</h3>' + rowsHtml + '</div>';
+
+    var dateInput = document.getElementById('fl-f-date');
+    var typeSelect = document.getElementById('fl-f-type');
+    var itemInput = document.getElementById('fl-f-item');
+    typeSelect.addEventListener('change', function(){
+      if(!itemInput.value) itemInput.placeholder = TYPE_PLACEHOLDER[typeSelect.value];
+    });
+
+    document.getElementById('fl-f-save').addEventListener('click', function(){
+      var item = itemInput.value.trim();
+      var rawValue = document.getElementById('fl-f-value').value;
+      var value = parseFloat(rawValue);
+      var errBox = document.getElementById('fl-f-valueerr');
+      errBox.innerHTML = '';
+
+      if(!item){ itemInput.focus(); return; }
+      if(rawValue === '' || isNaN(value) || value < 0){
+        errBox.innerHTML = '<div class="fl-fielderr">Enter a valid value of 0 or more.</div>';
+        return;
+      }
+
+      if(editingEntry){
+        editingEntry.type = typeSelect.value;
+        editingEntry.item = item;
+        editingEntry.quantity = document.getElementById('fl-f-qty').value.trim();
+        editingEntry.value = value;
+        editingEntry.date = dateInput.value || todayStr();
+        editingEntry.note = document.getElementById('fl-f-note').value.trim();
+      } else {
+        entries.push({
+          id: Date.now().toString(36),
+          type: typeSelect.value,
+          item: item,
+          quantity: document.getElementById('fl-f-qty').value.trim(),
+          unit: '',
+          value: value,
+          date: dateInput.value || todayStr(),
+          note: document.getElementById('fl-f-note').value.trim()
+        });
+      }
+      saveEntries(entries).then(function(){ drawRecords(entries, null); });
+    });
+
+    var cancelBtn = document.getElementById('fl-f-cancel');
+    if(cancelBtn){
+      cancelBtn.addEventListener('click', function(){ drawRecords(entries, null); });
+    }
+
+    body.querySelectorAll('[data-del]').forEach(function(btn){
+      btn.addEventListener('click', function(ev){
+        ev.stopPropagation();
+        var id = btn.getAttribute('data-del');
+        entries = entries.filter(function(e){ return e.id !== id; });
+        saveEntries(entries).then(function(){ drawRecords(entries, editingId === id ? null : editingId); });
+      });
+    });
+
+    body.querySelectorAll('.fl-entry').forEach(function(row){
+      row.addEventListener('click', function(){
+        var id = row.getAttribute('data-id');
+        drawRecords(entries, id);
+        var formEl = document.querySelector('.fl-form');
+        if(formEl) formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+
+    var csvBtn = document.getElementById('fl-export-csv');
+    if(csvBtn) csvBtn.addEventListener('click', function(){ exportCsv(entries); });
+    var pdfBtn = document.getElementById('fl-export-pdf');
+    if(pdfBtn) pdfBtn.addEventListener('click', function(){ exportPdf(entries, { totalInput: totalInput, totalYield: totalYield, totalExpense: totalExpense, net: net }); });
+  }
+
+  function csvEscape(v){
+    var s = String(v == null ? '' : v);
+    if(/[",\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }
+
+  function exportCsv(entries){
+    var rows = [['Date','Type','Item','Quantity','Value (UGX)','Note']];
+    entries.forEach(function(e){
+      rows.push([e.date, TYPE_LABEL[e.type] || e.type, e.item, e.quantity || '', e.value, e.note || '']);
+    });
+    var csv = rows.map(function(r){ return r.map(csvEscape).join(','); }).join('\r\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'farmlens-records-' + todayStr() + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  var jsPdfLoadPromise = null;
+  function loadJsPdf(){
+    if(window.jspdf && window.jspdf.jsPDF) return Promise.resolve();
+    if(jsPdfLoadPromise) return jsPdfLoadPromise;
+    jsPdfLoadPromise = new Promise(function(resolve, reject){
+      var script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      script.onload = function(){ resolve(); };
+      script.onerror = function(){ reject(new Error('Could not load PDF library.')); };
+      document.head.appendChild(script);
+    });
+    return jsPdfLoadPromise;
+  }
+
+  function exportPdf(entries, totals){
+    var pdfBtn = document.getElementById('fl-export-pdf');
+    if(pdfBtn){ pdfBtn.disabled = true; pdfBtn.textContent = 'Preparing…'; }
+    loadJsPdf().then(function(){
+      var jsPDF = window.jspdf.jsPDF;
+      var doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text('FarmLens — Farm Records', 14, 16);
+      doc.setFontSize(10);
+      doc.text('Exported ' + todayStr(), 14, 22);
+      doc.setFontSize(11);
+      doc.text('Input cost: ' + formatUGX(totals.totalInput), 14, 32);
+      doc.text('Yield value: ' + formatUGX(totals.totalYield), 14, 38);
+      doc.text('Expenses: ' + formatUGX(totals.totalExpense), 14, 44);
+      doc.text('Net: ' + formatUGX(totals.net), 14, 50);
+
+      var y = 60;
+      doc.setFontSize(9);
+      doc.text('Date', 14, y);
+      doc.text('Type', 40, y);
+      doc.text('Item', 65, y);
+      doc.text('Qty', 120, y);
+      doc.text('Value', 150, y);
+      doc.text('Note', 175, y);
+      y += 5;
+      doc.setLineWidth(0.1);
+      doc.line(14, y, 196, y);
+      y += 5;
+
+      entries.forEach(function(e){
+        if(y > 280){ doc.addPage(); y = 20; }
+        doc.text(String(e.date || ''), 14, y);
+        doc.text(String(TYPE_LABEL[e.type] || e.type || ''), 40, y);
+        doc.text(String(e.item || '').slice(0,25), 65, y);
+        doc.text(String(e.quantity || '').slice(0,12), 120, y);
+        doc.text(formatUGX(e.value), 150, y);
+        doc.text(String(e.note || '').slice(0,15), 175, y);
+        y += 6;
+      });
+
+      doc.save('farmlens-records-' + todayStr() + '.pdf');
+      if(pdfBtn){ pdfBtn.disabled = false; pdfBtn.textContent = 'Export PDF'; }
+    }).catch(function(err){
+      console.error(err);
+      if(pdfBtn){ pdfBtn.disabled = false; pdfBtn.textContent = 'Export PDF'; }
+      alert('Could not generate the PDF. Please check your connection and try again.');
+    });
+  }
+
+  // ---------- TRENDS VIEW ----------
+  function renderTrends(){
+    body.innerHTML = '<p class="fl-loading-text" style="margin-top:40px;">Crunching the numbers&hellip;</p>';
+    loadEntries().then(function(entries){
+      drawTrends(entries);
+    });
+  }
+
+  function monthKey(dateStr){
+    return (dateStr || '').slice(0,7);
+  }
+
+  function drawTrends(entries){
+    if(!entries.length){
+      body.innerHTML = '<div class="fl-empty" style="margin-top:40px;">No records yet. Log entries to see trends here.</div>';
+      return;
+    }
+    var months = {};
+    entries.forEach(function(e){
+      var k = monthKey(e.date);
+      if(!k) return;
+      if(!months[k]) months[k] = { input: 0, yield: 0, expense: 0 };
+      var v = Number(e.value) || 0;
+      if(e.type === 'input') months[k].input += v;
+      else if(e.type === 'yield') months[k].yield += v;
+      else if(e.type === 'expense') months[k].expense += v;
+    });
+    var keys = Object.keys(months).sort().slice(-6);
+    var maxVal = 1;
+    keys.forEach(function(k){
+      maxVal = Math.max(maxVal, months[k].input, months[k].yield, months[k].expense);
+    });
+
+    var chartW = 320, chartH = 160, groupW = chartW / Math.max(keys.length, 1);
+    var barW = Math.min(14, groupW / 5);
+    var svgBars = keys.map(function(k, i){
+      var groupX = i * groupW + groupW/2;
+      var m = months[k];
+      var bars = [
+        { v: m.input, color: 'var(--gold)', dx: -barW*1.2 },
+        { v: m.yield, color: 'var(--leaf)', dx: 0 },
+        { v: m.expense, color: 'var(--rust)', dx: barW*1.2 }
+      ];
+      return bars.map(function(b){
+        var h = Math.max(2, (b.v / maxVal) * (chartH - 24));
+        var x = groupX + b.dx - barW/2;
+        var y = chartH - 20 - h;
+        return '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + h + '" fill="' + b.color + '" rx="2"></rect>';
+      }).join('') +
+      '<text x="' + groupX + '" y="' + (chartH - 4) + '" font-size="9" fill="var(--paper-dim)" text-anchor="middle" font-family="IBM Plex Mono, monospace">' + k.slice(5) + '</text>';
+    }).join('');
+
+    var svg = '<svg viewBox="0 0 ' + chartW + ' ' + chartH + '" width="100%" height="' + chartH + '" xmlns="http://www.w3.org/2000/svg">' + svgBars + '</svg>';
+
+    var sortedEntries = entries.slice().sort(function(a,b){ return a.date.localeCompare(b.date); });
+    var running = 0;
+    var points = sortedEntries.map(function(e){
+      var v = Number(e.value) || 0;
+      if(e.type === 'yield') running += v;
+      else running -= v;
+      return running;
+    });
+    var lineMax = Math.max.apply(null, points.map(Math.abs).concat([1]));
+    var lw = 320, lh = 100;
+    var stepX = points.length > 1 ? lw / (points.length - 1) : lw;
+    var midY = lh / 2;
+    var pathD = points.map(function(p, i){
+      var x = i * stepX;
+      var y = midY - (p / lineMax) * (midY - 10);
+      return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+    }).join(' ');
+    var lineSvg = '<svg viewBox="0 0 ' + lw + ' ' + lh + '" width="100%" height="' + lh + '" xmlns="http://www.w3.org/2000/svg">' +
+      '<line x1="0" y1="' + midY + '" x2="' + lw + '" y2="' + midY + '" stroke="var(--khaki-600)" stroke-width="1"></line>' +
+      '<path d="' + pathD + '" fill="none" stroke="var(--gold)" stroke-width="2"></path>' +
+      '</svg>';
+
+    body.innerHTML =
+      '<div class="fl-chart-wrap">' +
+        '<h3 style="margin:0 0 10px;font-family:\'Barlow Condensed\',sans-serif;text-transform:uppercase;letter-spacing:1px;font-size:14px;color:var(--gold);">Monthly totals</h3>' +
+        svg +
+        '<div class="fl-chart-legend">' +
+          '<span><i style="background:var(--gold)"></i>Input cost</span>' +
+          '<span><i style="background:var(--leaf)"></i>Yield value</span>' +
+          '<span><i style="background:var(--rust)"></i>Expenses</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="fl-chart-wrap">' +
+        '<h3 style="margin:0 0 10px;font-family:\'Barlow Condensed\',sans-serif;text-transform:uppercase;letter-spacing:1px;font-size:14px;color:var(--gold);">Running net (all-time)</h3>' +
+        lineSvg +
+      '</div>';
+  }
+
+  // ---------- TIPS VIEW ----------
+  var STATIC_TIPS = [
+    { title: 'Scout before you spray', body: 'Walk your field in a zig-zag and check 10-15 plants at random before deciding to treat anything. Many pest and disease problems only need action once they cross a threshold, not at first sighting.' },
+    { title: 'Rotate to break pest cycles', body: 'Avoid planting the same crop family in the same plot two seasons running. Rotation starves out pests and diseases that build up in the soil around one crop.' },
+    { title: 'Protect topsoil on slopes', body: 'Contour bunds, trash lines, or grass strips across the slope slow runoff and hold soil and nutrients in place during heavy rain.' },
+    { title: 'Dry produce properly before storage', body: 'Grain stored above about 13-14% moisture is at high risk of mould and aflatoxin. Dry on a raised surface, not bare ground, and test by biting a few kernels — they should crack, not dent.' },
+    { title: 'Keep simple records', body: 'Logging every input, yield, and expense — even small ones — is what turns guesswork into a real picture of which enterprises are actually paying off.' }
+  ];
+
+  function renderTips(){
+    var cardsHtml = STATIC_TIPS.map(function(t){
+      return '<div class="fl-tipcard"><h4>' + escapeHtml(t.title) + '</h4><p>' + escapeHtml(t.body) + '</p></div>';
+    }).join('');
+
+    body.innerHTML =
+      '<div class="fl-tipask">' +
+        '<label for="fl-tip-crop">Get tips for a specific crop or problem</label>' +
+        '<div class="fl-form-row">' +
+          '<input type="text" id="fl-tip-crop" placeholder="e.g. banana weevils, tomato blight">' +
+        '</div>' +
+        '<button class="fl-btn fl-btn-primary" id="fl-tip-ask">Get advice</button>' +
+        '<div id="fl-tip-result" style="margin-top:12px;"></div>' +
+      '</div>' +
+      '<div class="fl-section"><h3>General field advice</h3>' + cardsHtml + '</div>';
+
+    document.getElementById('fl-tip-ask').addEventListener('click', function(){
+      var q = document.getElementById('fl-tip-crop').value.trim();
+      var resultBox = document.getElementById('fl-tip-result');
+      if(!q){ document.getElementById('fl-tip-crop').focus(); return; }
+      resultBox.innerHTML = '<p class="fl-loading-text" style="margin:0;">Looking that up&hellip;</p>';
+      askForTips(q, resultBox);
+    });
+  }
+
+  function askForTips(query, resultBox){
+    var systemPrompt = "You are an agronomy assistant for smallholder farmers in East Africa. Given a short farmer question about a crop, pest, or disease, give 3-5 short, practical, field-ready tips. Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this shape: {\"tips\":[\"string\",...]}. Keep each tip short and actionable, written for a farmer, not a scientist.";
+    fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 600,
+        system: systemPrompt,
+        messages: [{ role: "user", content: query }]
+      })
+    })
+    .then(function(res){
+      if(!res.ok){ throw new Error('The request was rejected (error ' + res.status + ').'); }
+      return res.json();
+    })
+    .then(function(data){
+      var textBlock = (data.content || []).find(function(b){ return b.type === 'text'; });
+      if(!textBlock){ throw new Error('No advice came back.'); }
+      var clean = textBlock.text.replace(/```json|```/g, '').trim();
+      var parsed = JSON.parse(clean);
+      var tips = parsed.tips || [];
+      resultBox.innerHTML = tips.length
+        ? '<div class="fl-tipcard"><h4>' + escapeHtml(query) + '</h4><ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.6;color:var(--paper);">' +
+            tips.map(function(t){ return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul></div>'
+        : '<div class="fl-error">No specific advice found. Try rephrasing.</div>';
+    })
+    .catch(function(err){
+      console.error(err);
+      resultBox.innerHTML = '<div class="fl-error">Could not fetch advice. ' + escapeHtml(err.message || 'AI advice isn\'t connected in this build yet.') + '</div>';
+    });
+  }
+
+  // ---------- WEATHER VIEW ----------
+  var WEATHER_CODE_MAP = {
+    0: 'Clear sky', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',
+    45: 'Fog', 48: 'Depositing fog',
+    51: 'Light drizzle', 53: 'Drizzle', 55: 'Dense drizzle',
+    61: 'Light rain', 63: 'Rain', 65: 'Heavy rain',
+    80: 'Rain showers', 81: 'Rain showers', 82: 'Violent rain showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm with hail', 99: 'Thunderstorm with hail'
+  };
+  function weatherDesc(code){ return WEATHER_CODE_MAP[code] || 'Mixed conditions'; }
+
+  function renderWeather(){
+    body.innerHTML =
+      '<div class="fl-locform">' +
+        '<input type="text" id="fl-loc-input" placeholder="Search a town, e.g. Gulu">' +
+        '<button class="fl-btn fl-btn-primary" id="fl-loc-search">Search</button>' +
+      '</div>' +
+      '<button class="fl-btn fl-btn-ghost" id="fl-loc-gps" style="margin-bottom:14px;">Use my current location</button>' +
+      '<div id="fl-weather-body"><p class="fl-loading-text">Getting your location&hellip;</p></div>';
+
+    document.getElementById('fl-loc-gps').addEventListener('click', useGeolocation);
+    document.getElementById('fl-loc-search').addEventListener('click', function(){
+      var q = document.getElementById('fl-loc-input').value.trim();
+      if(q) searchLocation(q);
+    });
+    document.getElementById('fl-loc-input').addEventListener('keydown', function(e){
+      if(e.key === 'Enter'){ document.getElementById('fl-loc-search').click(); }
+    });
+
+    useGeolocation();
+  }
+
+  function useGeolocation(){
+    var wb = document.getElementById('fl-weather-body');
+    if(!wb) return;
+    wb.innerHTML = '<p class="fl-loading-text">Getting your location&hellip;</p>';
+    if(!navigator.geolocation){
+      wb.innerHTML = '<div class="fl-error">Location isn\'t available in this browser. Try searching a town name above.</div>';
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(function(pos){
+      loadWeather(pos.coords.latitude, pos.coords.longitude, 'Your location');
+    }, function(){
+      wb.innerHTML = '<div class="fl-error">Couldn\'t get your location. Try searching a town name above instead.</div>';
+    }, { timeout: 8000 });
+  }
+
+  function searchLocation(query){
+    var wb = document.getElementById('fl-weather-body');
+    wb.innerHTML = '<p class="fl-loading-text">Finding ' + escapeHtml(query) + '&hellip;</p>';
+    fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(query) + '&count=1')
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        var r = (data.results || [])[0];
+        if(!r){ wb.innerHTML = '<div class="fl-error">Couldn\'t find that place. Try a different spelling.</div>'; return; }
+        loadWeather(r.latitude, r.longitude, r.name + (r.admin1 ? ', ' + r.admin1 : ''));
+      })
+      .catch(function(){ wb.innerHTML = '<div class="fl-error">Search failed. Check your connection and try again.</div>'; });
+  }
+
+  function loadWeather(lat, lon, label){
+    var wb = document.getElementById('fl-weather-body');
+    wb.innerHTML = '<p class="fl-loading-text">Fetching the forecast&hellip;</p>';
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
+      '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m' +
+      '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code' +
+      '&timezone=auto&forecast_days=5';
+    fetch(url)
+      .then(function(res){ return res.json(); })
+      .then(function(data){ drawWeather(data, label); })
+      .catch(function(){ wb.innerHTML = '<div class="fl-error">Could not load weather. Check your connection and try again.</div>'; });
+  }
+
+  function drawWeather(data, label){
+    var wb = document.getElementById('fl-weather-body');
+    var cur = data.current || {};
+    var daily = data.daily || {};
+    var days = (daily.time || []).map(function(d, i){
+      return {
+        date: d,
+        max: Math.round(daily.temperature_2m_max[i]),
+        min: Math.round(daily.temperature_2m_min[i]),
+        rain: daily.precipitation_sum[i],
+        code: daily.weather_code[i]
+      };
+    });
+
+    var totalRainNext5 = days.reduce(function(sum, d){ return sum + (Number(d.rain) || 0); }, 0);
+    var rainTomorrow = days[1] ? days[1].rain : 0;
+    var advisory;
+    if(rainTomorrow >= 10){
+      advisory = 'Significant rain expected tomorrow — hold off on spraying and consider harvesting anything ready today.';
+    } else if(totalRainNext5 < 2){
+      advisory = 'Little to no rain expected over the next few days — a good window for spraying, but keep an eye on soil moisture if you\'re irrigating.';
+    } else {
+      advisory = 'Mixed conditions ahead — check the daily breakdown before planning spraying or harvesting.';
+    }
+
+    var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var forecastHtml = days.map(function(d, i){
+      var dn = i === 0 ? 'Today' : dayNames[new Date(d.date + 'T00:00:00').getDay()];
+      return '<div class="fl-fcday"><div class="d">' + dn + '</div><div class="t">' + d.max + '&deg;/' + d.min + '&deg;</div>' +
+        (d.rain > 0.5 ? '<div class="r">' + d.rain.toFixed(0) + 'mm</div>' : '<div class="r" style="color:var(--paper-dim);">dry</div>') + '</div>';
+    }).join('');
+
+    wb.innerHTML =
+      '<div class="fl-weathernow">' +
+        '<div class="loc">' + escapeHtml(label) + '</div>' +
+        '<div class="temp">' + Math.round(cur.temperature_2m) + '&deg;C</div>' +
+        '<div class="desc">' + weatherDesc(cur.weather_code) + '</div>' +
+        '<div class="fl-weathermeta">' +
+          '<span>Humidity ' + Math.round(cur.relative_humidity_2m) + '%</span>' +
+          '<span>Wind ' + Math.round(cur.wind_speed_10m) + ' km/h</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="fl-advisory">' + advisory + '</div>' +
+      '<div class="fl-forecast">' + forecastHtml + '</div>';
+  }
+
+  function formatUGX(n){
+    n = Number(n) || 0;
+    return 'UGX ' + Math.round(n).toLocaleString();
+  }
+
+  // ---------- AI FARM ASSISTANT (floating chat) ----------
+  var ASSISTANT_SYSTEM_PROMPT = "You are FarmLens' in-app assistant for smallholder farmers in East Africa. Answer questions about crops, pests, diseases, soil, weather-related farm decisions, record-keeping, and general farm business practically and concisely, in plain language a farmer would use. If a question needs an actual photo to answer well (e.g. identifying a specific disease from symptoms), suggest using the Scan tab instead. Keep answers short — a few sentences or a short list, not an essay — since this is a small chat window on a phone.";
+
+  function loadChatHistory(){
+    return window.storage.get('assistant:history', false)
+      .then(function(res){ return res && res.value ? JSON.parse(res.value) : []; })
+      .catch(function(){ return []; });
+  }
+
+  function saveChatHistory(history){
+    return window.storage.set('assistant:history', JSON.stringify(history), false).catch(function(){});
+  }
+
+  function openAssistant(){
+    var overlay = document.createElement('div');
+    overlay.className = 'fl-chat-overlay';
+    overlay.id = 'fl-chat-overlay';
+    overlay.innerHTML =
+      '<div class="fl-chat-header"><h3>Ask FarmLens</h3><button class="fl-chat-close" id="fl-chat-close" aria-label="Close">&times;</button></div>' +
+      '<div class="fl-chat-messages" id="fl-chat-messages"></div>' +
+      '<div class="fl-chat-inputrow">' +
+        '<input type="text" id="fl-chat-input" placeholder="Ask about crops, pests, weather&hellip;">' +
+        '<button class="fl-chat-send" id="fl-chat-send" aria-label="Send">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 12L20 4L13 20L11 13L4 12Z" fill="currentColor"/></svg>' +
+        '</button>' +
+      '</div>';
+    document.querySelector('.fl-app').appendChild(overlay);
+
+    document.getElementById('fl-chat-close').addEventListener('click', function(){ overlay.remove(); });
+
+    var input = document.getElementById('fl-chat-input');
+    var sendBtn = document.getElementById('fl-chat-send');
+    var msgBox = document.getElementById('fl-chat-messages');
+
+    loadChatHistory().then(function(history){
+      renderChatMessages(history, msgBox);
+      var send = function(){
+        var text = input.value.trim();
+        if(!text) return;
+        input.value = '';
+        history.push({ role: 'user', content: text });
+        renderChatMessages(history, msgBox);
+        sendBtn.disabled = true;
+        askAssistant(history).then(function(replyText){
+          history.push({ role: 'assistant', content: replyText });
+          saveChatHistory(history);
+          renderChatMessages(history, msgBox);
+          sendBtn.disabled = false;
+        }).catch(function(){
+          history.push({ role: 'assistant', content: "The AI assistant isn't connected in this build yet — this feature needs a backend to be set up first." });
+          renderChatMessages(history, msgBox);
+          sendBtn.disabled = false;
+        });
+      };
+      sendBtn.addEventListener('click', send);
+      input.addEventListener('keydown', function(e){ if(e.key === 'Enter') send(); });
+    });
+  }
+
+  function renderChatMessages(history, msgBox){
+    if(!history.length){
+      msgBox.innerHTML = '<div class="fl-chat-empty">Ask me anything about your crops, pests, weather timing, or how to use FarmLens.</div>';
+    } else {
+      msgBox.innerHTML = history.map(function(m){
+        return '<div class="fl-chat-bubble ' + (m.role === 'user' ? 'user' : 'assistant') + '">' + escapeHtml(m.content) + '</div>';
+      }).join('');
+    }
+    msgBox.scrollTop = msgBox.scrollHeight;
+  }
+
+  function askAssistant(history){
+    var messages = history.map(function(m){ return { role: m.role, content: m.content }; });
+    return fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 500,
+        system: ASSISTANT_SYSTEM_PROMPT,
+        messages: messages
+      })
+    })
+    .then(function(res){
+      if(!res.ok){ throw new Error('Request failed'); }
+      return res.json();
+    })
+    .then(function(data){
+      var textBlock = (data.content || []).find(function(b){ return b.type === 'text'; });
+      return textBlock ? textBlock.text.trim() : "I didn't get a response — please try again.";
+    });
+  }
+
+  fabBtn.addEventListener('click', openAssistant);
+
+  // ---------- PROFILE / WELCOME (name only, not a real login — just for a personal touch) ----------
+  function getProfile(){
+    return window.storage.get('profile:info', false)
+      .then(function(res){ return res && res.value ? JSON.parse(res.value) : null; })
+      .catch(function(){ return null; });
+  }
+
+  function saveProfile(profile){
+    return window.storage.set('profile:info', JSON.stringify(profile), false).catch(function(){});
+  }
+
+  function renderWelcomeOrProfile(existing){
+    var overlay = document.createElement('div');
+    overlay.className = 'fl-welcome-overlay';
+    overlay.id = 'fl-welcome-overlay';
+    var isFirstRun = !existing;
+    var p = existing || { name: '', farm: '', crop: '' };
+    overlay.innerHTML =
+      '<h2>' + (isFirstRun ? 'Welcome to FarmLens' : 'Your profile') + '</h2>' +
+      '<p class="sub">' + (isFirstRun ? 'A quick intro before you get started' : 'Update your details anytime') + '</p>' +
+      '<label for="fl-profile-name">Your name</label>' +
+      '<input type="text" id="fl-profile-name" placeholder="e.g. Okello Jotham" value="' + escapeHtml(p.name) + '">' +
+      '<label for="fl-profile-farm">Farm or village (optional)</label>' +
+      '<input type="text" id="fl-profile-farm" placeholder="e.g. Gulu" value="' + escapeHtml(p.farm) + '">' +
+      '<label for="fl-profile-crop">Main crop (optional)</label>' +
+      '<input type="text" id="fl-profile-crop" placeholder="e.g. Bananas" value="' + escapeHtml(p.crop) + '">' +
+      '<button class="fl-btn fl-btn-primary" id="fl-profile-save">' + (isFirstRun ? 'Get started' : 'Save') + '</button>' +
+      (isFirstRun ? '' : '<button class="fl-btn fl-btn-ghost" id="fl-profile-cancel">Cancel</button>');
+    document.querySelector('.fl-app').appendChild(overlay);
+
+    document.getElementById('fl-profile-save').addEventListener('click', function(){
+      var name = document.getElementById('fl-profile-name').value.trim();
+      if(!name){ document.getElementById('fl-profile-name').focus(); return; }
+      var profile = {
+        name: name,
+        farm: document.getElementById('fl-profile-farm').value.trim(),
+        crop: document.getElementById('fl-profile-crop').value.trim()
+      };
+      saveProfile(profile).then(function(){
+        overlay.remove();
+        updateGreeting(profile);
+      });
+    });
+    var cancelBtn = document.getElementById('fl-profile-cancel');
+    if(cancelBtn) cancelBtn.addEventListener('click', function(){ overlay.remove(); });
+  }
+
+  function updateGreeting(profile){
+    if(profile && profile.name){
+      var greetingEl = document.getElementById('fl-greeting');
+      var text = 'Hi, ' + profile.name;
+      if(!greetingEl){
+        tagline.insertAdjacentHTML('beforebegin', '<p class="fl-tag" id="fl-greeting" style="color:var(--paper);margin-top:0;">' + escapeHtml(text) + '</p>');
+      } else {
+        greetingEl.textContent = text;
+      }
+    }
+  }
+
+  profileBtn.addEventListener('click', function(){
+    getProfile().then(function(existing){ renderWelcomeOrProfile(existing); });
+  });
+
+  updatePremiumBadge();
+  getProfile().then(function(profile){
+    if(!profile){
+      renderWelcomeOrProfile(null);
+    } else {
+      updateGreeting(profile);
+    }
+  });
+  renderScan();
+})();
+</script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("service-worker.js").catch(function(err){
+        console.warn("Service worker registration failed:", err);
+      });
+    });
+  }
+</script>
+</body>
+</html>
