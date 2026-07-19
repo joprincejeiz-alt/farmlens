@@ -451,6 +451,20 @@
     });
   }
 
+  // Some models wrap JSON in reasoning traces, markdown fences, or extra commentary.
+  // This strips known wrapper patterns and pulls out just the {...} object.
+  function extractJson(text){
+    var cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
+    cleaned = cleaned.replace(/```json|```/gi, '');
+    var start = cleaned.indexOf('{');
+    var end = cleaned.lastIndexOf('}');
+    if(start === -1 || end === -1 || end < start){
+      throw new Error('No JSON object found in the response.');
+    }
+    var jsonSlice = cleaned.slice(start, end + 1);
+    return JSON.parse(jsonSlice);
+  }
+
   function setActiveNav(btn){
     [navScan, navRecords, navTrends, navTips, navWeather].forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
@@ -798,11 +812,10 @@
       ]
     }];
 
-    callAI(systemPrompt, messages, 1000)
+    callAI(systemPrompt, messages, 2000)
       .then(function(text){
-        var clean = text.replace(/```json|```/g, '').trim();
         var parsed;
-        try { parsed = JSON.parse(clean); }
+        try { parsed = extractJson(text); }
         catch(e){ throw new Error('Got an unreadable response — please try scanning again.'); }
         renderResult(parsed, dataUrl);
       })
@@ -1189,10 +1202,9 @@
     }
     var systemPrompt = "You are an agronomy assistant for smallholder farmers in East Africa. Given a short farmer question about a crop, pest, or disease, give 3-5 short, practical, field-ready tips. Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this shape: {\"tips\":[\"string\",...]}. Keep each tip short and actionable, written for a farmer, not a scientist.";
 
-    callAI(systemPrompt, [{ role: 'user', content: query }], 600)
+    callAI(systemPrompt, [{ role: 'user', content: query }], 1200)
       .then(function(text){
-        var clean = text.replace(/```json|```/g, '').trim();
-        var parsed = JSON.parse(clean);
+        var parsed = extractJson(text);
         var tips = parsed.tips || [];
         resultBox.innerHTML = tips.length
           ? '<div class="fl-tipcard"><h4>' + escapeHtml(query) + '</h4><ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.6;color:var(--paper);">' +
@@ -1407,7 +1419,7 @@
       return { role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content };
     });
 
-    return callAI(ASSISTANT_SYSTEM_PROMPT, messages, 500)
+    return callAI(ASSISTANT_SYSTEM_PROMPT, messages, 800)
       .catch(function(){ return "I didn't get a response — please try again."; });
   }
 
