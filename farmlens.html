@@ -401,7 +401,7 @@
   // Change this to something only you know.
   var ADMIN_PIN = '2508';
 
-  // AQ.Ab8RN6Iw1EgfmarMdOQE719r33PMsfb5730HttLqWc2Op9DLOw (from aistudio.google.com -> Get API key).
+  // Paste your free Gemini API key here (from aistudio.google.com -> Get API key).
   // NOTE: this key will be visible to anyone who reads this file's source — don't publish
   // this exact file's raw code publicly. Gemini's free tier has daily limits but no cost.
   var GEMINI_API_KEY = 'AQ.Ab8RN6JpX63OBysWCADtkX8jwKSEaa27PsLKfyKpPD14OWppdw';
@@ -414,13 +414,9 @@
   // Shared helper for calling Gemini's generateContent endpoint.
   // parts: array of Gemini "part" objects (text and/or inlineData for images)
   // history: optional prior turns as [{role:'user'|'model', text:'...'}, ...] for multi-turn chat
-  function callGemini(systemPrompt, parts, maxTokens, history){
-    var contents = (history || []).map(function(h){
-      return { role: h.role, parts: [{ text: h.text }] };
-    });
-    contents.push({ role: 'user', parts: parts });
-
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
+  // inputContent: a plain string, OR an array of {type:'text', text} / {type:'image', mime_type, data} blocks
+  function callGemini(systemPrompt, inputContent, maxTokens){
+    var url = 'https://generativelanguage.googleapis.com/v1beta/interactions';
     return fetch(url, {
       method: 'POST',
       headers: {
@@ -428,23 +424,32 @@
         'x-goog-api-key': GEMINI_API_KEY
       },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: contents,
-        generationConfig: { maxOutputTokens: maxTokens }
+        model: GEMINI_MODEL,
+        input: inputContent,
+        system_instruction: systemPrompt,
+        generation_config: { max_output_tokens: maxTokens }
       })
     })
     .then(function(res){
       if(!res.ok){
         var statusMsg = res.status === 429 ? 'Free daily limit reached for now — try again later, or tomorrow.' :
+          (res.status === 401 || res.status === 403) ? 'The API key was rejected — check it was pasted in correctly.' :
           (res.status >= 500 ? 'The service is temporarily unavailable.' : 'The request was rejected (error ' + res.status + ').');
         return res.json().catch(function(){ return {}; }).then(function(){ throw new Error(statusMsg); });
       }
       return res.json();
     })
     .then(function(data){
-      var candidate = (data.candidates || [])[0];
-      var text = candidate && candidate.content && candidate.content.parts && candidate.content.parts[0]
-        ? candidate.content.parts[0].text : null;
+      var steps = data.steps || [];
+      var textParts = [];
+      steps.forEach(function(step){
+        if(step.type === 'model_output'){
+          (step.content || []).forEach(function(block){
+            if(block.type === 'text' && block.text){ textParts.push(block.text); }
+          });
+        }
+      });
+      var text = textParts.join('').trim();
       if(!text){ throw new Error('The model did not return a response.'); }
       return text;
     });
@@ -789,12 +794,12 @@
     }
     var systemPrompt = "You are an agronomy assistant for smallholder farmers in East Africa. Look at the leaf photo and identify the most likely pest or disease, or say the plant looks healthy. Be honest about uncertainty: some symptoms (e.g. viral leaf striping vs. nutrient deficiency) look genuinely similar, and confidently naming the wrong one is worse than admitting two things are possible. If a second cause is plausible, set confidence to reflect that split (do not report high confidence unless one cause is clearly dominant) and fill in the alternative field with the second possibility plus one concrete way the farmer can tell them apart in the field (e.g. whether it affects all plants evenly or just some, spreads from older or younger leaves first, etc). If there is no real alternative, leave alternative as null. Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this shape: {\"cropGuess\":\"string\",\"issue\":\"string (disease/pest name, or 'Healthy' if no problem)\",\"confidence\":number (0-100),\"symptoms\":[\"string\",...],\"alternative\":{\"issue\":\"string\",\"howToTell\":\"string\"} or null,\"organicTreatment\":[\"string\",...],\"chemicalTreatment\":[\"string\",...],\"prevention\":[\"string\",...]}. Keep each list item short and practical, written for a farmer, not a scientist.";
 
-    var parts = [
-      { inlineData: { mimeType: mediaType, data: base64 } },
-      { text: "Diagnose this crop leaf." }
+    var inputContent = [
+      { type: "image", mime_type: mediaType, data: base64 },
+      { type: "text", text: "Diagnose this crop leaf." }
     ];
 
-    callGemini(systemPrompt, parts, 1000)
+    callGemini(systemPrompt, inputContent, 1000)
       .then(function(text){
         var clean = text.replace(/```json|```/g, '').trim();
         var parsed;
@@ -1185,7 +1190,7 @@
     }
     var systemPrompt = "You are an agronomy assistant for smallholder farmers in East Africa. Given a short farmer question about a crop, pest, or disease, give 3-5 short, practical, field-ready tips. Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this shape: {\"tips\":[\"string\",...]}. Keep each tip short and actionable, written for a farmer, not a scientist.";
 
-    callGemini(systemPrompt, [{ text: query }], 600)
+    callGemini(systemPrompt, query, 600)
       .then(function(text){
         var clean = text.replace(/```json|```/g, '').trim();
         var parsed = JSON.parse(clean);
@@ -1399,12 +1404,11 @@
     if(!apiKeyConfigured()){
       return Promise.resolve("The AI assistant isn't set up yet — a free Gemini API key needs to be added to this app first.");
     }
-    var priorTurns = history.slice(0, -1).map(function(m){
-      return { role: m.role === 'assistant' ? 'model' : 'user', text: m.content };
-    });
-    var lastMsg = history[history.length - 1];
+    var transcript = history.map(function(m){
+      return (m.role === 'assistant' ? 'You' : 'Farmer') + ': ' + m.content;
+    }).join('\n');
 
-    return callGemini(ASSISTANT_SYSTEM_PROMPT, [{ text: lastMsg.content }], 500, priorTurns)
+    return callGemini(ASSISTANT_SYSTEM_PROMPT, transcript, 500)
       .then(function(text){ return text.trim(); })
       .catch(function(){ return "I didn't get a response — please try again."; });
   }
