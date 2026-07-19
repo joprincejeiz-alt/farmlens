@@ -431,7 +431,8 @@
       body: JSON.stringify({
         model: GROQ_MODEL,
         messages: fullMessages,
-        max_completion_tokens: maxTokens
+        max_completion_tokens: maxTokens,
+        reasoning_effort: 'none'
       })
     })
     .then(function(res){
@@ -812,7 +813,7 @@
       ]
     }];
 
-    callAI(systemPrompt, messages, 2000)
+    callAI(systemPrompt, messages, 1000)
       .then(function(text){
         var parsed;
         try { parsed = extractJson(text); }
@@ -1202,7 +1203,7 @@
     }
     var systemPrompt = "You are an agronomy assistant for smallholder farmers in East Africa. Given a short farmer question about a crop, pest, or disease, give 3-5 short, practical, field-ready tips. Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this shape: {\"tips\":[\"string\",...]}. Keep each tip short and actionable, written for a farmer, not a scientist.";
 
-    callAI(systemPrompt, [{ role: 'user', content: query }], 1200)
+    callAI(systemPrompt, [{ role: 'user', content: query }], 600)
       .then(function(text){
         var parsed = extractJson(text);
         var tips = parsed.tips || [];
@@ -1419,7 +1420,7 @@
       return { role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content };
     });
 
-    return callAI(ASSISTANT_SYSTEM_PROMPT, messages, 800)
+    return callAI(ASSISTANT_SYSTEM_PROMPT, messages, 500)
       .catch(function(){ return "I didn't get a response — please try again."; });
   }
 
