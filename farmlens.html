@@ -404,7 +404,7 @@
   // Paste your free Groq API key here (from console.groq.com/keys).
   // NOTE: this key will be visible to anyone who reads this file's source — don't publish
   // this exact file's raw code publicly. Groq's free tier has rate limits but no cost.
-  var GROQ_API_KEY = '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';
+  var GROQ_API_KEY = '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';
   var GROQ_MODEL = 'qwen/qwen3.6-27b';
 
   function apiKeyConfigured(){
@@ -689,22 +689,17 @@
         limitBanner +
         '<div class="fl-scanzone" id="fl-scanzone">' +
           '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8C4 6.9 4.9 6 6 6H8L9 4H15L16 6H18C19.1 6 20 6.9 20 8V17C20 18.1 19.1 19 18 19H6C4.9 19 4 18.1 4 17V8Z" stroke="#EDE6D3" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12.5" r="3.4" stroke="#D9A441" stroke-width="1.6"/></svg>' +
-          '<p class="title">Tap to scan a leaf</p>' +
+          '<p class="title">Tap to take a photo</p>' +
           '<p class="sub">Photograph the affected leaf in good light</p>' +
           '<input type="file" accept="image/*" capture="environment" id="fl-file" style="display:none;">' +
-        '</div>';
+        '</div>' +
+        '<button class="fl-btn fl-btn-ghost" id="fl-gallery-btn" style="margin-top:10px;">Choose from Gallery</button>' +
+        '<input type="file" accept="image/*" id="fl-file-gallery" style="display:none;">';
 
       var upgradeLink = document.getElementById('fl-limit-upgrade');
       if(upgradeLink) upgradeLink.addEventListener('click', renderUpgrade);
 
-      var fileInput = document.getElementById('fl-file');
-      var scanzone = document.getElementById('fl-scanzone');
-      scanzone.addEventListener('click', function(){
-        if(!premium && remaining <= 0){ renderUpgrade(); return; }
-        fileInput.click();
-      });
-      fileInput.addEventListener('change', function(e){
-        var file = e.target.files[0];
+      function handleChosenFile(file){
         if(!file) return;
         if(!premium && remaining <= 0){ renderUpgrade(); return; }
         var reader = new FileReader();
@@ -718,7 +713,23 @@
           });
         };
         reader.readAsDataURL(file);
+      }
+
+      var fileInput = document.getElementById('fl-file');
+      var scanzone = document.getElementById('fl-scanzone');
+      scanzone.addEventListener('click', function(){
+        if(!premium && remaining <= 0){ renderUpgrade(); return; }
+        fileInput.click();
       });
+      fileInput.addEventListener('change', function(e){ handleChosenFile(e.target.files[0]); });
+
+      var galleryBtn = document.getElementById('fl-gallery-btn');
+      var galleryInput = document.getElementById('fl-file-gallery');
+      galleryBtn.addEventListener('click', function(){
+        if(!premium && remaining <= 0){ renderUpgrade(); return; }
+        galleryInput.click();
+      });
+      galleryInput.addEventListener('change', function(e){ handleChosenFile(e.target.files[0]); });
     });
   }
 
@@ -1201,7 +1212,7 @@
       resultBox.innerHTML = '<div class="fl-error">AI advice isn\'t set up yet — a free Groq API key needs to be added to this app first.</div>';
       return;
     }
-    var systemPrompt = "You are an agronomy assistant for smallholder farmers in East Africa. Given a short farmer question about a crop, pest, or disease, give 3-5 short, practical, field-ready tips. Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this shape: {\"tips\":[\"string\",...]}. Keep each tip short and actionable, written for a farmer, not a scientist.";
+    var systemPrompt = "You are an agronomy assistant for smallholder farmers in East Africa. Given a short farmer question about a crop, pest, or disease, give 3-5 short, practical, field-ready tips. Reply in the same language the farmer's question is written in — do not switch languages on your own. Write each tip in plain text only, no markdown symbols like asterisks. Respond with ONLY valid JSON, no markdown fences, no preamble, in exactly this shape: {\"tips\":[\"string\",...]}. Keep each tip short and actionable, written for a farmer, not a scientist.";
 
     callAI(systemPrompt, [{ role: 'user', content: query }], 600)
       .then(function(text){
@@ -1209,7 +1220,7 @@
         var tips = parsed.tips || [];
         resultBox.innerHTML = tips.length
           ? '<div class="fl-tipcard"><h4>' + escapeHtml(query) + '</h4><ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.6;color:var(--paper);">' +
-              tips.map(function(t){ return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul></div>'
+              tips.map(function(t){ return '<li>' + escapeHtml(stripMarkdown(t)) + '</li>'; }).join('') + '</ul></div>'
           : '<div class="fl-error">No specific advice found. Try rephrasing.</div>';
       })
       .catch(function(err){
@@ -1343,7 +1354,7 @@
   }
 
   // ---------- AI FARM ASSISTANT (floating chat) ----------
-  var ASSISTANT_SYSTEM_PROMPT = "You are FarmLens' in-app assistant for smallholder farmers in East Africa. Answer questions about crops, pests, diseases, soil, weather-related farm decisions, record-keeping, and general farm business practically and concisely, in plain language a farmer would use. If a question needs an actual photo to answer well (e.g. identifying a specific disease from symptoms), suggest using the Scan tab instead. Keep answers short — a few sentences or a short list, not an essay — since this is a small chat window on a phone.";
+  var ASSISTANT_SYSTEM_PROMPT = "You are FarmLens' in-app assistant for smallholder farmers in East Africa. Answer questions about crops, pests, diseases, soil, weather-related farm decisions, record-keeping, and general farm business practically and concisely, in plain language a farmer would use. Always reply in the same language the farmer just wrote in — if they write in English, reply in English; if they write in Swahili, reply in Swahili; and so on for any other language. Do not switch languages on your own. Write in plain text only — do not use markdown formatting such as asterisks for bold/italic, headers, or bullet symbols like * or -; if you need a list, write it as plain numbered sentences instead. If a question needs an actual photo to answer well (e.g. identifying a specific disease from symptoms), suggest using the Scan tab instead. Keep answers short — a few sentences or a short list, not an essay — since this is a small chat window on a phone.";
 
   function loadChatHistory(){
     return window.storage.get('assistant:history', false)
@@ -1401,12 +1412,22 @@
     });
   }
 
+  // Safety net in case the model still slips in markdown symbols despite instructions.
+  function stripMarkdown(text){
+    return String(text || '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/^[\*\-]\s+/gm, '');
+  }
+
   function renderChatMessages(history, msgBox){
     if(!history.length){
       msgBox.innerHTML = '<div class="fl-chat-empty">Ask me anything about your crops, pests, weather timing, or how to use FarmLens.</div>';
     } else {
       msgBox.innerHTML = history.map(function(m){
-        return '<div class="fl-chat-bubble ' + (m.role === 'user' ? 'user' : 'assistant') + '">' + escapeHtml(m.content) + '</div>';
+        var text = m.role === 'user' ? m.content : stripMarkdown(m.content);
+        return '<div class="fl-chat-bubble ' + (m.role === 'user' ? 'user' : 'assistant') + '">' + escapeHtml(text) + '</div>';
       }).join('');
     }
     msgBox.scrollTop = msgBox.scrollHeight;
