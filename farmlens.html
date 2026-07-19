@@ -411,6 +411,11 @@
     return GEMINI_API_KEY && GEMINI_API_KEY.indexOf('PASTE-YOUR') !== 0;
   }
 
+  function maskedKeyPreview(){
+    if(!GEMINI_API_KEY || GEMINI_API_KEY.length < 10) return '(no key set)';
+    return GEMINI_API_KEY.slice(0, 8) + '…' + GEMINI_API_KEY.slice(-4) + ' (' + GEMINI_API_KEY.length + ' characters)';
+  }
+
   // Shared helper for calling Gemini's generateContent endpoint.
   // parts: array of Gemini "part" objects (text and/or inlineData for images)
   // history: optional prior turns as [{role:'user'|'model', text:'...'}, ...] for multi-turn chat
@@ -433,7 +438,7 @@
     .then(function(res){
       if(!res.ok){
         var statusMsg = res.status === 429 ? 'Free daily limit reached for now — try again later, or tomorrow.' :
-          (res.status === 401 || res.status === 403) ? 'The API key was rejected — check it was pasted in correctly.' :
+          (res.status === 401 || res.status === 403) ? 'The API key was rejected. Key currently in use: ' + maskedKeyPreview() :
           (res.status >= 500 ? 'The service is temporarily unavailable.' : 'The request was rejected (error ' + res.status + ').');
         return res.json().catch(function(){ return {}; }).then(function(){ throw new Error(statusMsg); });
       }
